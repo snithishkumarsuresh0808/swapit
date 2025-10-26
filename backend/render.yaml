@@ -1,0 +1,22 @@
+databases:
+  - name: swapit-db
+    databaseName: swapit
+    user: swapit
+
+services:
+  - type: web
+    name: swapit-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swapit-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DEBUG
+        value: False
