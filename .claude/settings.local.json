@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(rm:*)",
+      "Bash(python:*)",
+      "Bash(venvScriptspip install:*)",
+      "Bash(taskkill:*)",
+      "Bash(mkdir:*)",
+      "Bash(dir app)",
+      "Bash(pip install:*)",
+      "Bash(dir:*)",
+      "Bash(cat:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
