@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import WebRTCCall from '../components/WebRTCCall';
+import { getApiUrl } from '@/lib/config';
 
 interface User {
   id: number;
@@ -55,7 +56,7 @@ export default function Messages() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/conversations/', {
+      const response = await fetch(getApiUrl('/api/messages/conversations/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -130,7 +131,7 @@ export default function Messages() {
                   >
                     {conversation.user.profile_image ? (
                       <img
-                        src={`http://localhost:8000${conversation.user.profile_image}`}
+                        src={getApiUrl(conversation.user.profile_image)}
                         alt={`${conversation.user.first_name} ${conversation.user.last_name}`}
                         className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                       />

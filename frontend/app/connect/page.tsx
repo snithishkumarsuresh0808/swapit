@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
+import { getApiUrl } from '@/lib/config';
 
 interface User {
   id: number;
@@ -59,7 +60,7 @@ export default function Connect() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/posts/all/', {
+      const response = await fetch(getApiUrl('/api/posts/all/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -92,7 +93,7 @@ export default function Connect() {
 
     for (const user of users) {
       try {
-        const response = await fetch(`http://localhost:8000/api/messages/connection-status/${user.id}/`, {
+        const response = await fetch(getApiUrl(`/api/messages/connection-status/${user.id}/`), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -115,7 +116,7 @@ export default function Connect() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/connections/send/', {
+      const response = await fetch(getApiUrl('/api/messages/connections/send/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -126,7 +127,7 @@ export default function Connect() {
 
       if (response.ok) {
         // Refresh connection status
-        const statusResponse = await fetch(`http://localhost:8000/api/messages/connections/status/${userId}/`, {
+        const statusResponse = await fetch(getApiUrl(`/api/messages/connections/status/${userId}/`), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -150,7 +151,7 @@ export default function Connect() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/connections/pending/', {
+      const response = await fetch(getApiUrl('/api/messages/connections/pending/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -167,50 +168,18 @@ export default function Connect() {
 
   const fetchConnectedUsers = async () => {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/posts/all/', {
+      // Use the new dedicated endpoint for connected users
+      const response = await fetch(getApiUrl('/api/messages/connections/connected/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
       });
 
       if (response.ok) {
-        const posts = await response.json();
-        const uniqueUsers = new Map<number, User>();
-
-        posts.forEach((post: any) => {
-          if (post.user.id !== JSON.parse(userData || '{}').id) {
-            uniqueUsers.set(post.user.id, post.user);
-          }
-        });
-
-        const allUsers = Array.from(uniqueUsers.values());
-
-        // Fetch connection statuses to filter connected users
-        const connected: User[] = [];
-
-        for (const user of allUsers) {
-          try {
-            const statusResponse = await fetch(`http://localhost:8000/api/messages/connections/status/${user.id}/`, {
-              headers: {
-                'Authorization': `Token ${token}`,
-              },
-            });
-
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
-              if (statusData.status === 'accepted') {
-                connected.push(user);
-              }
-            }
-          } catch (error) {
-            console.error(`Error fetching connection status for user ${user.id}:`, error);
-          }
-        }
-
+        const connected = await response.json();
         setConnectedUsers(connected);
       }
     } catch (error) {
@@ -223,7 +192,7 @@ export default function Connect() {
     if (!token) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/messages/connections/${connectionId}/respond/`, {
+      const response = await fetch(getApiUrl(`/api/messages/connections/${connectionId}/respond/`), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -233,6 +202,9 @@ export default function Connect() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        // Show success message with both names
+        alert(data.message || `Connection accepted!`);
         // Refresh data
         fetchPendingRequests();
         fetchConnectedUsers();
@@ -247,7 +219,7 @@ export default function Connect() {
     if (!token) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/messages/connections/${connectionId}/respond/`, {
+      const response = await fetch(getApiUrl(`/api/messages/connections/${connectionId}/respond/`), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -257,11 +229,46 @@ export default function Connect() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        // Show message with both names
+        alert(data.message || `Connection rejected.`);
         // Refresh pending requests
         fetchPendingRequests();
       }
     } catch (error) {
       console.error('Error rejecting connection request:', error);
+    }
+  };
+
+  const handleDisconnect = async (userId: number) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // Confirm before disconnecting
+    if (!confirm('Are you sure you want to disconnect from this user?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(getApiUrl(`/api/messages/connections/disconnect/${userId}/`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(data.message || 'Successfully disconnected');
+        // Refresh the connected users list
+        fetchConnectedUsers();
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to disconnect');
+      }
+    } catch (error) {
+      console.error('Error disconnecting user:', error);
+      alert('Failed to disconnect. Please try again.');
     }
   };
 
@@ -294,7 +301,7 @@ export default function Connect() {
                     <div className="flex items-center gap-3 mb-3">
                       {request.from_user.profile_image ? (
                         <img
-                          src={`http://localhost:8000${request.from_user.profile_image}`}
+                          src={getApiUrl(request.from_user.profile_image)}
                           alt={`${request.from_user.first_name} ${request.from_user.last_name}`}
                           className="w-14 h-14 rounded-full object-cover"
                         />
@@ -357,22 +364,25 @@ export default function Connect() {
               <p className="text-xs text-gray-600">Start connecting with people from Home, Matches, or Posts!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
               {connectedUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-lg hover:border-green-300 transition-all duration-200"
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
                 >
-                  {/* User Info */}
-                  <div className="flex items-center gap-3 mb-3">
+                  {/* Left side: Avatar and User Info - Clickable */}
+                  <div
+                    className="flex items-center gap-3 flex-1 cursor-pointer"
+                    onClick={() => router.push(`/user/${user.id}`)}
+                  >
                     {user.profile_image ? (
                       <img
-                        src={`http://localhost:8000${user.profile_image}`}
+                        src={getApiUrl(user.profile_image)}
                         alt={`${user.first_name} ${user.last_name}`}
-                        className="w-14 h-14 rounded-full object-cover"
+                        className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500 to-blue-500 text-white flex items-center justify-center text-base font-bold">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-blue-500 text-white flex items-center justify-center text-sm font-bold">
                         {getInitials(user.first_name, user.last_name)}
                       </div>
                     )}
@@ -382,23 +392,34 @@ export default function Connect() {
                         {user.first_name} {user.last_name}
                       </h3>
                       <p className="text-xs text-gray-500 truncate">@{user.username}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
+                  {/* Right side: Action buttons with icons and labels */}
+                  <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => router.push(`/user/${user.id}`)}
-                      className="flex-1 px-3 py-1.5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all text-xs font-semibold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/messages/${user.id}`);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors text-sm font-medium"
                     >
-                      View Profile
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span className="hidden md:inline">Message</span>
                     </button>
                     <button
-                      onClick={() => router.push(`/messages/${user.id}`)}
-                      className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-all text-xs font-semibold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDisconnect(user.id);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
                     >
-                      Message
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+                      </svg>
+                      <span className="hidden md:inline">Disconnect</span>
                     </button>
                   </div>
                 </div>

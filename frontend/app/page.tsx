@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from './components/Sidebar';
+import { getApiUrl } from '@/lib/config';
 
 interface Post {
   id: number;
@@ -53,7 +54,7 @@ export default function Home() {
     setIsLoggedIn(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/posts/all/', {
+      const response = await fetch(getApiUrl('/api/posts/all/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -82,7 +83,7 @@ export default function Home() {
 
     for (const post of posts) {
       try {
-        const response = await fetch(`http://localhost:8000/api/messages/connections/status/${post.user.id}/`, {
+        const response = await fetch(getApiUrl(`/api/messages/connections/status/${post.user.id}/`), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -105,7 +106,7 @@ export default function Home() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/connections/send/', {
+      const response = await fetch(getApiUrl('/api/messages/connections/send/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -116,7 +117,7 @@ export default function Home() {
 
       if (response.ok) {
         // Refresh connection status
-        const statusResponse = await fetch(`http://localhost:8000/api/messages/connections/status/${userId}/`, {
+        const statusResponse = await fetch(getApiUrl(`/api/messages/connections/status/${userId}/`), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -193,7 +194,7 @@ export default function Home() {
                     >
                       {post.user.profile_image ? (
                         <img
-                          src={`http://localhost:8000${post.user.profile_image}`}
+                          src={getApiUrl(post.user.profile_image)}
                           alt={`${post.user.first_name} ${post.user.last_name}`}
                           className="w-full h-full object-cover"
                         />

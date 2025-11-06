@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import CreatePostModal from '../components/CreatePostModal';
+import { getApiUrl } from '@/lib/config';
 
 interface Post {
   id: number;
@@ -41,7 +42,7 @@ export default function Posts() {
     const loadPosts = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/api/posts/', {
+        const response = await fetch(getApiUrl('/api/posts/'), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -65,7 +66,7 @@ export default function Posts() {
     if (confirm('Are you sure you want to delete this post?')) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/api/posts/${id}/`, {
+        const response = await fetch(getApiUrl(`/api/posts/${id}/`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Token ${token}`,
@@ -123,7 +124,7 @@ export default function Posts() {
         });
       }
 
-      const response = await fetch('http://localhost:8000/api/posts/', {
+      const response = await fetch(getApiUrl('/api/posts/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -192,7 +193,7 @@ export default function Posts() {
         });
       }
 
-      const response = await fetch(`http://localhost:8000/api/posts/${editingPost.id}/`, {
+      const response = await fetch(getApiUrl(`/api/posts/${editingPost.id}/`), {
         method: 'PUT',
         headers: {
           'Authorization': `Token ${token}`,

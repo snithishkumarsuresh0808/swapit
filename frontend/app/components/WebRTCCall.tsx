@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { getWsUrl } from '@/lib/config';
 
 interface WebRTCCallProps {
   currentUserId: number;
@@ -44,7 +45,7 @@ export default function WebRTCCall({
   const initializeCall = async () => {
     try {
       // Create WebSocket connection first
-      const ws = new WebSocket(`ws://localhost:8000/ws/call/${currentUserId}/`);
+      const ws = new WebSocket(getWsUrl(`/ws/call/${currentUserId}/`));
       websocketRef.current = ws;
 
       ws.onopen = async () => {

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiUrl } from '@/lib/config';
 
 export default function Profile() {
   const [skills, setSkills] = useState<string[]>([]);
@@ -91,7 +92,7 @@ export default function Profile() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/profile/', {
+      const response = await fetch(getApiUrl('/api/profile/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

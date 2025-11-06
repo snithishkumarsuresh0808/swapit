@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
+import { getApiUrl } from '@/lib/config';
 
 interface User {
   id: number;
@@ -69,7 +70,7 @@ export default function Matches() {
 
     try {
       // Fetch all posts
-      const postsResponse = await fetch('http://localhost:8000/api/posts/all/', {
+      const postsResponse = await fetch(getApiUrl('/api/posts/all/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -79,7 +80,7 @@ export default function Matches() {
         const allPosts: Post[] = await postsResponse.json();
 
         // Fetch current user's posts to get their skills
-        const userPostsResponse = await fetch('http://localhost:8000/api/posts/', {
+        const userPostsResponse = await fetch(getApiUrl('/api/posts/'), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -117,7 +118,7 @@ export default function Matches() {
 
     for (const match of matches) {
       try {
-        const response = await fetch(`http://localhost:8000/api/messages/connections/status/${match.user.id}/`, {
+        const response = await fetch(getApiUrl(`/api/messages/connections/status/${match.user.id}/`), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -140,7 +141,7 @@ export default function Matches() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/connections/send/', {
+      const response = await fetch(getApiUrl('/api/messages/connections/send/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -151,7 +152,7 @@ export default function Matches() {
 
       if (response.ok) {
         // Refresh connection status
-        const statusResponse = await fetch(`http://localhost:8000/api/messages/connections/status/${userId}/`, {
+        const statusResponse = await fetch(getApiUrl(`/api/messages/connections/status/${userId}/`), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -305,7 +306,7 @@ export default function Matches() {
                     <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden">
                       {match.user.profile_image ? (
                         <img
-                          src={`http://localhost:8000${match.user.profile_image}`}
+                          src={getApiUrl(match.user.profile_image)}
                           alt={`${match.user.first_name} ${match.user.last_name}`}
                           className="w-full h-full object-cover"
                         />

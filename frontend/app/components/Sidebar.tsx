@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { getApiUrl } from '@/lib/config';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -39,7 +40,7 @@ export default function Sidebar() {
 
     try {
       // Fetch all posts
-      const postsResponse = await fetch('http://localhost:8000/api/posts/all/', {
+      const postsResponse = await fetch(getApiUrl('/api/posts/all/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -49,7 +50,7 @@ export default function Sidebar() {
         const allPosts = await postsResponse.json();
 
         // Fetch current user's posts
-        const userPostsResponse = await fetch('http://localhost:8000/api/posts/', {
+        const userPostsResponse = await fetch(getApiUrl('/api/posts/'), {
           headers: {
             'Authorization': `Token ${token}`,
           },
@@ -107,7 +108,7 @@ export default function Sidebar() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/conversations/', {
+      const response = await fetch(getApiUrl('/api/messages/conversations/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -128,7 +129,7 @@ export default function Sidebar() {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/connections/pending/', {
+      const response = await fetch(getApiUrl('/api/messages/connections/pending/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },

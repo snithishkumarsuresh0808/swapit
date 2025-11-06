@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Sidebar from '../../components/Sidebar';
 import WebRTCCall from '../../components/WebRTCCall';
+import { getApiUrl } from '@/lib/config';
 
 interface User {
   id: number;
@@ -63,7 +64,7 @@ export default function Conversation() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/messages/conversation/${userId}/`, {
+      const response = await fetch(getApiUrl(`/api/messages/conversation/${userId}/`), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -97,7 +98,7 @@ export default function Conversation() {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('http://localhost:8000/api/messages/send/', {
+      const response = await fetch(getApiUrl('/api/messages/send/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -149,7 +150,7 @@ export default function Conversation() {
 
               {otherUser.profile_image ? (
                 <img
-                  src={`http://localhost:8000${otherUser.profile_image}`}
+                  src={getApiUrl(otherUser.profile_image)}
                   alt={`${otherUser.first_name} ${otherUser.last_name}`}
                   className="w-8 h-8 rounded-full object-cover"
                 />
@@ -202,7 +203,7 @@ export default function Conversation() {
                       {!isMe && (
                         message.sender.profile_image ? (
                           <img
-                            src={`http://localhost:8000${message.sender.profile_image}`}
+                            src={getApiUrl(message.sender.profile_image)}
                             alt={`${message.sender.first_name} ${message.sender.last_name}`}
                             className="w-7 h-7 rounded-full object-cover flex-shrink-0"
                           />

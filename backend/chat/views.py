@@ -129,7 +129,14 @@ def respond_connection_request(request, connection_id):
         return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
     connection.save()
-    return Response(ConnectionSerializer(connection).data)
+
+    # Return connection data with both user names
+    response_data = ConnectionSerializer(connection).data
+    response_data['message'] = f"You {action}ed connection request from {connection.from_user.first_name} {connection.from_user.last_name}"
+    response_data['sender_name'] = f"{connection.from_user.first_name} {connection.from_user.last_name}"
+    response_data['accepter_name'] = f"{connection.to_user.first_name} {connection.to_user.last_name}"
+
+    return Response(response_data)
 
 
 @api_view(['GET'])
@@ -162,3 +169,53 @@ def get_pending_requests(request):
     """Get all pending connection requests received by the user"""
     requests = Connection.objects.filter(to_user=request.user, status='pending')
     return Response(ConnectionSerializer(requests, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_connected_users(request):
+    """Get all users that are connected with the current user (accepted connections)"""
+    from accounts.serializers import UserSerializer
+
+    # Get all accepted connections where user is either sender or receiver
+    connections = Connection.objects.filter(
+        Q(from_user=request.user, status='accepted') |
+        Q(to_user=request.user, status='accepted')
+    )
+
+    # Extract the other user from each connection
+    connected_users = []
+    for connection in connections:
+        other_user = connection.to_user if connection.from_user == request.user else connection.from_user
+        connected_users.append(other_user)
+
+    serializer = UserSerializer(connected_users, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def disconnect_user(request, user_id):
+    """Disconnect from a connected user by deleting the connection"""
+    try:
+        other_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Find the connection (could be in either direction)
+    connection = Connection.objects.filter(
+        Q(from_user=request.user, to_user=other_user, status='accepted') |
+        Q(from_user=other_user, to_user=request.user, status='accepted')
+    ).first()
+
+    if not connection:
+        return Response({'error': 'No active connection found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Delete the connection
+    connection_user_name = f"{other_user.first_name} {other_user.last_name}"
+    connection.delete()
+
+    return Response({
+        'message': f'Successfully disconnected from {connection_user_name}',
+        'user_name': connection_user_name
+    }, status=status.HTTP_200_OK)

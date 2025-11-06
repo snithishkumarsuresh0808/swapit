@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Sidebar from '../../components/Sidebar';
+import { getApiUrl } from '@/lib/config';
 
 interface Post {
   id: number;
@@ -53,7 +54,7 @@ export default function PostDetail() {
 
     try {
       // Fetch from all posts endpoint to view any user's post
-      const response = await fetch('http://localhost:8000/api/posts/all/', {
+      const response = await fetch(getApiUrl('/api/posts/all/'), {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -140,7 +141,7 @@ export default function PostDetail() {
                 >
                   {post.user.profile_image ? (
                     <img
-                      src={`http://localhost:8000${post.user.profile_image}`}
+                      src={getApiUrl(post.user.profile_image)}
                       alt={`${post.user.first_name} ${post.user.last_name}`}
                       className="w-full h-full object-cover"
                     />
@@ -252,7 +253,7 @@ export default function PostDetail() {
                     {post.images.map((imageObj) => (
                       <img
                         key={imageObj.id}
-                        src={`http://localhost:8000${imageObj.image}`}
+                        src={getApiUrl(imageObj.image)}
                         alt={`Post image ${imageObj.id}`}
                         className="w-full h-32 object-cover rounded border border-gray-200"
                       />
@@ -275,7 +276,7 @@ export default function PostDetail() {
                       <video
                         key={videoObj.id}
                         controls
-                        src={`http://localhost:8000${videoObj.video}`}
+                        src={getApiUrl(videoObj.video)}
                         className="w-full rounded border border-gray-200"
                       />
                     ))}

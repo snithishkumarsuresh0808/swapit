@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
+import { getApiUrl } from '@/lib/config';
 
 export default function Settings() {
   const [user, setUser] = useState<any>(null);
@@ -34,7 +35,7 @@ export default function Settings() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       if (parsedUser.profile_image) {
-        setPreviewImage(`http://localhost:8000${parsedUser.profile_image}`);
+        setPreviewImage(getApiUrl(parsedUser.profile_image));
       }
     }
     setLoading(false);
@@ -58,7 +59,7 @@ export default function Settings() {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/change-password/', {
+      const response = await fetch(getApiUrl('/api/auth/change-password/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -110,7 +111,7 @@ export default function Settings() {
     formData.append('profile_image', profileImage);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/update-profile/', {
+      const response = await fetch(getApiUrl('/api/auth/update-profile/'), {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,

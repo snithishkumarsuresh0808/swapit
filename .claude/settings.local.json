@@ -16,7 +16,15 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git config:*)",
-      "Bash(git remote set-url:*)"
+      "Bash(git remote set-url:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(if not exist backend.env copy backend.env.example backend.env)",
+      "Bash(test:*)",
+      "Bash(cp:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getApiUrl } from '@/lib/config';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -16,7 +17,7 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login/', {
+      const response = await fetch(getApiUrl('/api/auth/login/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -31,12 +32,8 @@ export default function Login() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        // Check if user has a profile, if not redirect to profile creation
-        if (data.has_profile) {
-          router.push('/dashboard');
-        } else {
-          router.push('/profile');
-        }
+        // Redirect to feed page after login
+        router.push('/');
       } else {
         setError(data.error || data.email?.[0] || data.password?.[0] || 'Invalid credentials');
       }

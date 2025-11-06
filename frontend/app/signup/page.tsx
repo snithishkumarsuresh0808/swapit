@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getApiUrl } from '@/lib/config';
 
 export default function SignUp() {
   const [firstName, setFirstName] = useState('');
@@ -29,7 +30,7 @@ export default function SignUp() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/signup/', {
+      const response = await fetch(getApiUrl('/api/auth/signup/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
