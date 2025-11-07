@@ -19,6 +19,8 @@ export default function Settings() {
   const [selectedRingtone, setSelectedRingtone] = useState('default');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [customRingtone, setCustomRingtone] = useState<File | null>(null);
+  const [customRingtoneUrl, setCustomRingtoneUrl] = useState<string | null>(null);
   const router = useRouter();
 
   const ringtones = [
@@ -26,6 +28,7 @@ export default function Settings() {
     { id: 'classic', name: 'Classic Phone', file: '/sounds/classic.mp3' },
     { id: 'digital', name: 'Digital Beep', file: '/sounds/digital.mp3' },
     { id: 'melodic', name: 'Melodic Tone', file: '/sounds/melodic.mp3' },
+    { id: 'custom', name: 'Custom Ringtone', file: 'custom' },
   ];
 
   useEffect(() => {
@@ -33,6 +36,12 @@ export default function Settings() {
     // Load saved ringtone preference
     const savedRingtone = localStorage.getItem('selectedRingtone') || 'default';
     setSelectedRingtone(savedRingtone);
+
+    // Load custom ringtone URL if exists
+    const customUrl = localStorage.getItem('customRingtoneUrl');
+    if (customUrl) {
+      setCustomRingtoneUrl(customUrl);
+    }
   }, []);
 
   const checkAuth = () => {
@@ -150,23 +159,91 @@ export default function Settings() {
     const ringtone = ringtones.find(r => r.id === ringtoneId);
     if (ringtone) {
       localStorage.setItem('selectedRingtone', ringtoneId);
-      localStorage.setItem('ringtone', ringtone.file);
+
+      if (ringtoneId === 'custom' && customRingtoneUrl) {
+        localStorage.setItem('ringtone', customRingtoneUrl);
+      } else {
+        localStorage.setItem('ringtone', ringtone.file);
+      }
+
       setMessage('Ringtone updated successfully');
       setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const testRingtone = () => {
-    const ringtone = ringtones.find(r => r.id === selectedRingtone);
-    if (ringtone) {
-      const audio = new Audio(ringtone.file);
-      audio.volume = 0.5;
-      audio.play().catch(error => {
-        console.error('Error playing test ringtone:', error);
-        setError('Could not play ringtone. File may not exist.');
+  const handleCustomRingtoneUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('audio/')) {
+        setError('Please upload an audio file (MP3, WAV, etc.)');
         setTimeout(() => setError(''), 3000);
-      });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
+      setCustomRingtone(file);
+
+      // Create blob URL for the audio file
+      const url = URL.createObjectURL(file);
+      setCustomRingtoneUrl(url);
+      localStorage.setItem('customRingtoneUrl', url);
+
+      // Automatically select custom ringtone
+      setSelectedRingtone('custom');
+      localStorage.setItem('selectedRingtone', 'custom');
+      localStorage.setItem('ringtone', url);
+
+      setMessage('Custom ringtone uploaded successfully');
+      setTimeout(() => setMessage(''), 3000);
     }
+  };
+
+  const deleteCustomRingtone = () => {
+    if (customRingtoneUrl) {
+      URL.revokeObjectURL(customRingtoneUrl);
+    }
+
+    setCustomRingtone(null);
+    setCustomRingtoneUrl(null);
+    localStorage.removeItem('customRingtoneUrl');
+
+    // Switch back to default ringtone
+    if (selectedRingtone === 'custom') {
+      setSelectedRingtone('default');
+      localStorage.setItem('selectedRingtone', 'default');
+      localStorage.setItem('ringtone', '/sounds/ringtone.mp3');
+    }
+
+    setMessage('Custom ringtone deleted');
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const testRingtone = () => {
+    let audioUrl = '/sounds/ringtone.mp3';
+
+    if (selectedRingtone === 'custom' && customRingtoneUrl) {
+      audioUrl = customRingtoneUrl;
+    } else {
+      const ringtone = ringtones.find(r => r.id === selectedRingtone);
+      if (ringtone && ringtone.file !== 'custom') {
+        audioUrl = ringtone.file;
+      }
+    }
+
+    const audio = new Audio(audioUrl);
+    audio.volume = 0.5;
+    audio.play().catch(error => {
+      console.error('Error playing test ringtone:', error);
+      setError('Could not play ringtone. File may not exist.');
+      setTimeout(() => setError(''), 3000);
+    });
   };
 
   const handleDeleteAccount = async () => {
@@ -351,20 +428,75 @@ export default function Settings() {
             {openSection === 'ringtone' && (
               <div className="px-3 py-3 bg-white border-t border-gray-300 space-y-2">
                 {ringtones.map((ringtone) => (
-                  <label
-                    key={ringtone.id}
-                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="ringtone"
-                      value={ringtone.id}
-                      checked={selectedRingtone === ringtone.id}
-                      onChange={() => handleRingtoneChange(ringtone.id)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-xs text-gray-900">{ringtone.name}</span>
-                  </label>
+                  <div key={ringtone.id}>
+                    {ringtone.id === 'custom' ? (
+                      <div className="border border-gray-200 rounded p-2 space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="ringtone"
+                            value={ringtone.id}
+                            checked={selectedRingtone === ringtone.id}
+                            onChange={() => handleRingtoneChange(ringtone.id)}
+                            disabled={!customRingtoneUrl}
+                            className="w-4 h-4 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="text-xs text-gray-900 font-medium">{ringtone.name}</span>
+                          {customRingtoneUrl && (
+                            <span className="text-[10px] text-green-600">(Uploaded)</span>
+                          )}
+                        </label>
+
+                        <div className="flex gap-2 mt-2">
+                          <label className="flex-1">
+                            <input
+                              type="file"
+                              accept="audio/*"
+                              onChange={handleCustomRingtoneUpload}
+                              className="hidden"
+                              id="custom-ringtone-upload"
+                            />
+                            <div className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-all text-xs font-semibold text-center cursor-pointer flex items-center justify-center gap-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              </svg>
+                              Upload
+                            </div>
+                          </label>
+
+                          {customRingtoneUrl && (
+                            <button
+                              onClick={deleteCustomRingtone}
+                              className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-all text-xs font-semibold flex items-center justify-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          )}
+                        </div>
+
+                        {customRingtone && (
+                          <p className="text-[10px] text-gray-500 mt-1">
+                            File: {customRingtone.name} ({(customRingtone.size / 1024).toFixed(2)} KB)
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="ringtone"
+                          value={ringtone.id}
+                          checked={selectedRingtone === ringtone.id}
+                          onChange={() => handleRingtoneChange(ringtone.id)}
+                          className="w-4 h-4 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-xs text-gray-900">{ringtone.name}</span>
+                      </label>
+                    )}
+                  </div>
                 ))}
                 <button
                   onClick={testRingtone}

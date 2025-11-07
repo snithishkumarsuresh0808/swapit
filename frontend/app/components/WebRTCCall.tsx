@@ -24,6 +24,7 @@ export default function WebRTCCall({
     isIncoming ? 'ringing' : 'calling'
   );
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isVideoCall] = useState(!audioOnly);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -279,6 +280,19 @@ export default function WebRTCCall({
     }
   };
 
+  const toggleSpeaker = () => {
+    if (remoteVideoRef.current) {
+      const audioElement = remoteVideoRef.current as HTMLAudioElement;
+      if (isSpeakerOn) {
+        audioElement.volume = 0;
+        setIsSpeakerOn(false);
+      } else {
+        audioElement.volume = 1;
+        setIsSpeakerOn(true);
+      }
+    }
+  };
+
   const endCall = () => {
     sendWebSocketMessage({
       type: 'call-end',
@@ -375,46 +389,71 @@ export default function WebRTCCall({
         </div>
 
         {/* Call Controls */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           {/* Mute Button */}
-          <button
-            onClick={toggleMute}
-            className={`p-5 rounded-full transition-all shadow-lg ${
-              isMuted
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm'
-            }`}
-            title={isMuted ? 'Unmute' : 'Mute'}
-          >
-            {isMuted ? (
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-              </svg>
-            ) : (
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            )}
-          </button>
+          <div className="flex flex-col items-center">
+            <button
+              onClick={toggleMute}
+              className={`p-4 rounded-full transition-all shadow-2xl transform hover:scale-110 ${
+                isMuted
+                  ? 'bg-red-600 hover:bg-red-700 ring-4 ring-red-400 ring-opacity-50'
+                  : 'bg-gray-800 hover:bg-gray-700'
+              }`}
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? (
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                  <path d="M4.27 3L3 4.27l9 9 .73.73L19 20.27 20.27 19l-2-2-9-9L4.27 3z" fill="white" opacity="0.9"/>
+                </svg>
+              ) : (
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+              )}
+            </button>
+            <span className="text-white text-xs mt-2 font-medium">{isMuted ? 'Muted' : 'Mute'}</span>
+          </div>
 
           {/* End Call Button */}
-          <button
-            onClick={endCall}
-            className="p-6 bg-red-600 hover:bg-red-700 rounded-full transition-all shadow-lg"
-            title="End Call"
-          >
-            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15c0-.55.45-1 1-1h2c.55 0 1 .45 1 1v6.8c4.56-.93 8-4.96 8-9.8zm-12 5c-.55 0-1-.45-1-1v-3l-2.29 2.29c-.19.19-.44.29-.71.29s-.52-.1-.71-.29L3.71 13.7c-.39-.39-.39-1.02 0-1.41L9.29 6.7c.39-.39 1.02-.39 1.41 0l1.58 1.58c.39.39.39 1.02 0 1.41L10 11.59V16c0 .55-.45 1-1 1zm8 0c-.55 0-1-.45-1-1v-4.41l-2.29-2.29c-.39-.39-.39-1.02 0-1.41l1.58-1.58c.39-.39 1.02-.39 1.41 0l5.58 5.58c.39.39.39 1.02 0 1.41l-1.58 1.58c-.19.19-.44.29-.71.29s-.52-.1-.71-.29L20 11.59V16c0 .55-.45 1-1 1z" />
-            </svg>
-          </button>
-
-          {/* Speaker Icon (visual indicator for audio call) */}
-          {!isVideoCall && callStatus === 'connected' && (
-            <div className="p-5 rounded-full bg-white bg-opacity-20 backdrop-blur-sm">
-              <svg className="w-7 h-7 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          <div className="flex flex-col items-center">
+            <button
+              onClick={endCall}
+              className="p-5 bg-red-600 hover:bg-red-700 rounded-full transition-all shadow-2xl transform hover:scale-110 hover:rotate-12 ring-4 ring-red-400 ring-opacity-50"
+              title="End Call"
+            >
+              <svg className="w-7 h-7 text-white transform rotate-135" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
               </svg>
+            </button>
+            <span className="text-white text-xs mt-2 font-medium">End</span>
+          </div>
+
+          {/* Speaker Button (for audio calls) */}
+          {!isVideoCall && (
+            <div className="flex flex-col items-center">
+              <button
+                onClick={toggleSpeaker}
+                className={`p-4 rounded-full transition-all shadow-2xl transform hover:scale-110 ${
+                  !isSpeakerOn
+                    ? 'bg-red-600 hover:bg-red-700 ring-4 ring-red-400 ring-opacity-50'
+                    : 'bg-gray-800 hover:bg-gray-700'
+                }`}
+                title={isSpeakerOn ? 'Mute Speaker' : 'Unmute Speaker'}
+              >
+                {isSpeakerOn ? (
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                  </svg>
+                )}
+              </button>
+              <span className="text-white text-xs mt-2 font-medium">{isSpeakerOn ? 'Speaker' : 'Muted'}</span>
             </div>
           )}
         </div>
