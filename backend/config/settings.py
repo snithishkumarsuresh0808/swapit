@@ -156,6 +156,12 @@ CORS_ALLOWED_ORIGINS = config(
 
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF settings for production
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:3000,https://swapit-da9t.onrender.com'
+).split(',')
+
 # Channels configuration
 ASGI_APPLICATION = 'config.asgi.application'
 
