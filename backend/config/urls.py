@@ -18,8 +18,25 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse, HttpResponse
+
+def root_view(request):
+    return JsonResponse({
+        'message': 'SwapIt API',
+        'status': 'running',
+        'endpoints': {
+            'accounts': '/api/accounts/',
+            'messages': '/api/messages/',
+            'admin': '/admin/'
+        }
+    })
+
+def favicon_view(request):
+    return HttpResponse(status=204)
 
 urlpatterns = [
+    path('', root_view, name='root'),
+    path('favicon.ico', favicon_view, name='favicon'),
     path('admin/', admin.site.urls),
     path('api/', include('accounts.urls')),
     path('api/messages/', include('chat.urls')),
