@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     SignUpView, LoginView, ProfileView, AllProfilesView,
     UserPostsView, PostDetailView, AllPostsView,
-    ChangePasswordView, UpdateProfileImageView
+    ChangePasswordView, UpdateProfileImageView, DeleteAccountView
 )
 
 urlpatterns = [
@@ -10,6 +10,7 @@ urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('auth/update-profile/', UpdateProfileImageView.as_view(), name='update-profile'),
+    path('auth/delete-account/', DeleteAccountView.as_view(), name='delete-account'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('profiles/', AllProfilesView.as_view(), name='all-profiles'),
     path('posts/', UserPostsView.as_view(), name='user-posts'),

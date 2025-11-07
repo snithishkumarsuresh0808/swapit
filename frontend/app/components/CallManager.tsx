@@ -28,10 +28,15 @@ export default function CallManager() {
       initializeCallListener(user.id);
     }
 
-    // Initialize ringtone
+    // Initialize ringtone with user's preference or default
     if (typeof window !== 'undefined') {
-      ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+      const savedRingtone = localStorage.getItem('ringtone') || '/sounds/ringtone.mp3';
+      ringtoneRef.current = new Audio(savedRingtone);
       ringtoneRef.current.loop = true;
+      ringtoneRef.current.volume = 0.7;
+
+      // Preload the audio
+      ringtoneRef.current.load();
     }
 
     // Request notification permission
@@ -92,9 +97,60 @@ export default function CallManager() {
 
   const playRingtone = () => {
     if (ringtoneRef.current) {
-      ringtoneRef.current.play().catch((error) => {
-        console.error('Error playing ringtone:', error);
-      });
+      // Reset to beginning
+      ringtoneRef.current.currentTime = 0;
+
+      // Try to play
+      const playPromise = ringtoneRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('Ringtone playing successfully');
+          })
+          .catch((error) => {
+            console.error('Error playing ringtone:', error);
+            // If ringtone file not found, use fallback beep
+            createBeepSound();
+          });
+      }
+    } else {
+      // Fallback if audio element doesn't exist
+      createBeepSound();
+    }
+  };
+
+  const createBeepSound = () => {
+    // Create a simple beep using Web Audio API as fallback
+    if (typeof window !== 'undefined' && 'AudioContext' in window) {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 800; // Frequency in Hz
+      gainNode.gain.value = 0.3; // Volume
+
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 200); // 200ms beep
+
+      // Repeat beep every 1 second
+      const beepInterval = setInterval(() => {
+        if (incomingCall) {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.frequency.value = 800;
+          gain.gain.value = 0.3;
+          osc.start();
+          setTimeout(() => osc.stop(), 200);
+        } else {
+          clearInterval(beepInterval);
+        }
+      }, 1000);
     }
   };
 

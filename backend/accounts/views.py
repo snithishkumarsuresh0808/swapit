@@ -297,3 +297,25 @@ class UpdateProfileImageView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+
+        # Delete the user's token
+        try:
+            token = Token.objects.get(user=user)
+            token.delete()
+        except Token.DoesNotExist:
+            pass
+
+        # Delete the user account (this will cascade delete related data)
+        user.delete()
+
+        return Response(
+            {'message': 'Account deleted successfully'},
+            status=status.HTTP_200_OK
+        )

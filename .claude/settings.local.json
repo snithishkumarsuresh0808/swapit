@@ -24,7 +24,11 @@
       "Bash(cp:*)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(cmdkey:*)",
+      "Bash(git credential-manager-core:*)",
+      "Bash(git clone:*)",
+      "Bash(gh auth:*)"
     ],
     "deny": [],
     "ask": []
