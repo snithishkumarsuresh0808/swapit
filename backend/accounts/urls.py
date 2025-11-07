@@ -4,6 +4,10 @@ from .views import (
     UserPostsView, PostDetailView, AllPostsView,
     ChangePasswordView, UpdateProfileImageView, DeleteAccountView
 )
+from .ringtone_views import (
+    RingtoneListView, RingtoneUploadView, RingtoneDetailView,
+    SetActiveRingtoneView, ActiveRingtoneView
+)
 
 urlpatterns = [
     path('auth/signup/', SignUpView.as_view(), name='signup'),
@@ -16,4 +20,11 @@ urlpatterns = [
     path('posts/', UserPostsView.as_view(), name='user-posts'),
     path('posts/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
     path('posts/all/', AllPostsView.as_view(), name='all-posts'),
+
+    # Ringtone endpoints
+    path('ringtones/', RingtoneListView.as_view(), name='ringtone-list'),
+    path('ringtones/upload/', RingtoneUploadView.as_view(), name='ringtone-upload'),
+    path('ringtones/<int:pk>/', RingtoneDetailView.as_view(), name='ringtone-detail'),
+    path('ringtones/<int:pk>/activate/', SetActiveRingtoneView.as_view(), name='set-active-ringtone'),
+    path('ringtones/active/', ActiveRingtoneView.as_view(), name='active-ringtone'),
 ]

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Profile, Post, PostImage, PostVideo
+from .models import User, Profile, Post, PostImage, PostVideo, Ringtone
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -59,3 +59,19 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = ['id', 'user', 'skills', 'wanted_skills', 'availability', 'time_slots', 'images', 'videos', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
+
+
+class RingtoneSerializer(serializers.ModelSerializer):
+    audio_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ringtone
+        fields = ['id', 'name', 'audio_file', 'audio_url', 'is_active', 'uploaded_at']
+        read_only_fields = ['uploaded_at']
+
+    def get_audio_url(self, obj):
+        if obj.audio_file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.audio_file.url)
+        return None

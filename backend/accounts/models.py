@@ -61,3 +61,17 @@ class PostVideo(models.Model):
 
     def __str__(self):
         return f"Video for {self.post.id}"
+
+
+class Ringtone(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ringtones')
+    name = models.CharField(max_length=100)
+    audio_file = models.FileField(upload_to='ringtones/')
+    is_active = models.BooleanField(default=False)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.user.email}'s Ringtone - {self.name}"
