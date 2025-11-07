@@ -34,9 +34,17 @@ export default function WebRTCCall({
   const localStreamRef = useRef<MediaStream | null>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
   const wsReadyRef = useRef(false);
+  const outgoingRingtoneRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     initializeCall();
+
+    // Initialize outgoing ringtone for calling state
+    if (!isIncoming && typeof window !== 'undefined') {
+      outgoingRingtoneRef.current = new Audio('/sounds/calling.mp3');
+      outgoingRingtoneRef.current.loop = true;
+      outgoingRingtoneRef.current.volume = 0.5;
+    }
 
     return () => {
       cleanup();
@@ -181,6 +189,11 @@ export default function WebRTCCall({
     if (!peerConnectionRef.current) return;
 
     try {
+      // Play outgoing ringtone
+      if (outgoingRingtoneRef.current) {
+        outgoingRingtoneRef.current.play().catch(err => console.error('Error playing outgoing ringtone:', err));
+      }
+
       const offer = await peerConnectionRef.current.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: isVideoCall,
@@ -195,6 +208,13 @@ export default function WebRTCCall({
       });
     } catch (error) {
       console.error('Error making call:', error);
+    }
+  };
+
+  const stopOutgoingRingtone = () => {
+    if (outgoingRingtoneRef.current) {
+      outgoingRingtoneRef.current.pause();
+      outgoingRingtoneRef.current.currentTime = 0;
     }
   };
 
@@ -249,6 +269,7 @@ export default function WebRTCCall({
     if (!peerConnectionRef.current) return;
 
     try {
+      stopOutgoingRingtone(); // Stop outgoing ringtone when call is answered
       await peerConnectionRef.current.setRemoteDescription(
         new RTCSessionDescription(data.answer)
       );
@@ -294,6 +315,8 @@ export default function WebRTCCall({
   };
 
   const endCall = () => {
+    stopOutgoingRingtone(); // Stop outgoing ringtone when call ends
+
     sendWebSocketMessage({
       type: 'call-end',
       peer_id: otherUserId,
@@ -304,6 +327,8 @@ export default function WebRTCCall({
   };
 
   const cleanup = () => {
+    stopOutgoingRingtone(); // Stop outgoing ringtone on cleanup
+
     // Stop all tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
