@@ -41,9 +41,17 @@ export default function WebRTCCall({
 
     // Initialize outgoing ringtone for calling state
     if (!isIncoming && typeof window !== 'undefined') {
-      outgoingRingtoneRef.current = new Audio('/sounds/calling.mp3');
-      outgoingRingtoneRef.current.loop = true;
-      outgoingRingtoneRef.current.volume = 0.5;
+      const audio = new Audio('/sounds/calling.mp3');
+      audio.loop = true;
+      audio.volume = 0.5;
+
+      // Handle load error - file might not exist
+      audio.addEventListener('error', () => {
+        console.warn('Outgoing ringtone file not found, will use fallback beep');
+        outgoingRingtoneRef.current = null;
+      });
+
+      outgoingRingtoneRef.current = audio;
     }
 
     return () => {

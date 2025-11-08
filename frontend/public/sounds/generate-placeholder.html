@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Placeholder Ringtones</title>
+</head>
+<body>
+    <h1>Placeholder Ringtone Generator</h1>
+    <p>This page generates simple beep sounds for ringtones.</p>
+    <button onclick="generateCallingTone()">Generate calling.mp3</button>
+    <button onclick="generateRingtone()">Generate ringtone.mp3</button>
+
+    <script>
+        // Generate a simple beep tone
+        function generateTone(frequency, duration, filename) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const sampleRate = audioContext.sampleRate;
+            const numSamples = sampleRate * duration;
+            const buffer = audioContext.createBuffer(1, numSamples, sampleRate);
+            const data = buffer.getChannelData(0);
+
+            // Generate sine wave
+            for (let i = 0; i < numSamples; i++) {
+                const t = i / sampleRate;
+                data[i] = Math.sin(2 * Math.PI * frequency * t) * 0.3;
+            }
+
+            // Note: This is just a demonstration
+            // To actually save the file, you would need a library like lamejs
+            alert('Audio generated! (Saving to file requires additional library)');
+            console.log('Generated audio buffer:', buffer);
+        }
+
+        function generateCallingTone() {
+            generateTone(440, 2, 'calling.mp3'); // 440 Hz (A note) for 2 seconds
+        }
+
+        function generateRingtone() {
+            generateTone(880, 2, 'ringtone.mp3'); // 880 Hz (A note, higher octave) for 2 seconds
+        }
+    </script>
+</body>
+</html>
