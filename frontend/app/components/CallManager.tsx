@@ -28,15 +28,9 @@ export default function CallManager() {
       initializeCallListener(user.id);
     }
 
-    // Initialize ringtone with user's preference or default
+    // Initialize ringtone - fetch active ringtone from backend
     if (typeof window !== 'undefined') {
-      const savedRingtone = localStorage.getItem('ringtone') || '/sounds/ringtone.mp3';
-      ringtoneRef.current = new Audio(savedRingtone);
-      ringtoneRef.current.loop = true;
-      ringtoneRef.current.volume = 0.7;
-
-      // Preload the audio
-      ringtoneRef.current.load();
+      fetchActiveRingtone();
     }
 
     // Request notification permission
@@ -51,6 +45,47 @@ export default function CallManager() {
       stopRingtone();
     };
   }, []);
+
+  const fetchActiveRingtone = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      // Fallback to default
+      ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+      ringtoneRef.current.loop = true;
+      ringtoneRef.current.volume = 0.7;
+      ringtoneRef.current.load();
+      return;
+    }
+
+    try {
+      const response = await fetch(getApiUrl('/api/ringtones/active/'), {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        ringtoneRef.current = new Audio(data.audio_url);
+        ringtoneRef.current.loop = true;
+        ringtoneRef.current.volume = 0.7;
+        ringtoneRef.current.load();
+      } else {
+        // No active ringtone, use default
+        ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+        ringtoneRef.current.loop = true;
+        ringtoneRef.current.volume = 0.7;
+        ringtoneRef.current.load();
+      }
+    } catch (error) {
+      console.error('Error fetching active ringtone:', error);
+      // Fallback to default
+      ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+      ringtoneRef.current.loop = true;
+      ringtoneRef.current.volume = 0.7;
+      ringtoneRef.current.load();
+    }
+  };
 
   const initializeCallListener = (userId: number) => {
     const ws = new WebSocket(getWsUrl(`/ws/call/${userId}/`));
