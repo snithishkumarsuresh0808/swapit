@@ -30,7 +30,17 @@ ENV/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-/media
+/media/*
+!/media/.gitkeep
+!/media/ringtones/
+/media/ringtones/*
+!/media/ringtones/.gitkeep
+!/media/post_images/
+/media/post_images/*
+!/media/post_videos/
+/media/post_videos/*
+!/media/profile_images/
+/media/profile_images/*
 /staticfiles
 /static
 
