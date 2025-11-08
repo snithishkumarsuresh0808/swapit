@@ -308,7 +308,7 @@ export default function Posts() {
                     <div className="mb-4">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Your Skills:</p>
                       <div className="flex flex-wrap gap-2">
-                        {post.skills.map((skill, idx) => (
+                        {post.skills.filter(skill => skill).map((skill, idx) => (
                           <span key={idx} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
                             {skill}
                           </span>
@@ -322,7 +322,7 @@ export default function Posts() {
                     <div className="mb-4">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Want to Learn:</p>
                       <div className="flex flex-wrap gap-2">
-                        {post.wanted_skills.map((skill, idx) => (
+                        {post.wanted_skills.filter(skill => skill).map((skill, idx) => (
                           <span key={idx} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium">
                             {skill}
                           </span>
@@ -336,7 +336,7 @@ export default function Posts() {
                     <div className="mb-4">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Availability:</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {post.availability.map((day, idx) => (
+                        {post.availability.filter(day => day).map((day, idx) => (
                           <span key={idx} className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded text-xs font-medium capitalize">
                             {day}
                           </span>
@@ -350,7 +350,7 @@ export default function Posts() {
                     <div className="mb-4">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Time Slots:</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {post.time_slots.map((slot, idx) => (
+                        {post.time_slots.filter(slot => slot).map((slot, idx) => (
                           <span key={idx} className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium capitalize">
                             {slot}
                           </span>
