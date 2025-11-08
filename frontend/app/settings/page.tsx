@@ -129,6 +129,12 @@ export default function Settings() {
         setMessage('Profile picture updated successfully');
         setUser(data.user);
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Update preview image with the new profile image
+        if (data.user.profile_image) {
+          setPreviewImage(getApiUrl(data.user.profile_image));
+        }
+        // Reset the profile image file state
+        setProfileImage(null);
       } else {
         setError('Failed to update profile picture');
       }

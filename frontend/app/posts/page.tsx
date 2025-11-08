@@ -359,8 +359,42 @@ export default function Posts() {
                     </div>
                   )}
 
+                  {/* Images */}
+                  {post.images && post.images.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-gray-900 mb-2">Images:</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {post.images.map((img) => (
+                          <img
+                            key={img.id}
+                            src={getApiUrl(img.image)}
+                            alt="Post image"
+                            className="w-full h-20 object-cover rounded border border-gray-200"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Videos */}
+                  {post.videos && post.videos.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-gray-900 mb-2">Videos:</p>
+                      <div className="space-y-1.5">
+                        {post.videos.map((vid) => (
+                          <video
+                            key={vid.id}
+                            src={getApiUrl(vid.video)}
+                            controls
+                            className="w-full rounded border border-gray-200"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-xs text-gray-500 mb-4 pt-2">
-                    {formatDate(post.created_at)}
+                    Posted: {formatDate(post.created_at)}
                   </p>
 
                   {/* Actions */}
