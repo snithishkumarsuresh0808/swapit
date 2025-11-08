@@ -22,3 +22,9 @@ services:
         value: False
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings
+      - key: ALLOWED_HOSTS
+        value: swapit-da9t.onrender.com,localhost,127.0.0.1,swapit-nine.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://swapit-nine.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://swapit-nine.vercel.app,https://swapit-da9t.onrender.com,http://localhost:3000
