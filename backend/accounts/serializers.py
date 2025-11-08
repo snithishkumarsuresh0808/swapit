@@ -22,9 +22,18 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
+    profile_image = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone_number', 'profile_image']
+
+    def get_profile_image(self, obj):
+        if obj.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_image.url)
+        return None
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -37,17 +46,35 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PostImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = PostImage
         fields = ['id', 'image', 'uploaded_at']
         read_only_fields = ['uploaded_at']
 
+    def get_image(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+        return None
+
 
 class PostVideoSerializer(serializers.ModelSerializer):
+    video = serializers.SerializerMethodField()
+
     class Meta:
         model = PostVideo
         fields = ['id', 'video', 'uploaded_at']
         read_only_fields = ['uploaded_at']
+
+    def get_video(self, obj):
+        if obj.video:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.video.url)
+        return None
 
 
 class PostSerializer(serializers.ModelSerializer):

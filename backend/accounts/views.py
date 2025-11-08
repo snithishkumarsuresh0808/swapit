@@ -293,7 +293,7 @@ class UpdateProfileImageView(APIView):
         return Response(
             {
                 'message': 'Profile image updated successfully',
-                'user': UserDetailSerializer(request.user).data
+                'user': UserDetailSerializer(request.user, context={'request': request}).data
             },
             status=status.HTTP_200_OK
         )
