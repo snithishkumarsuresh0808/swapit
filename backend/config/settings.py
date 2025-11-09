@@ -133,6 +133,11 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# IMPORTANT: Media files in production
+# Note: Render uses an ephemeral filesystem, meaning uploaded files are deleted on redeploy.
+# For persistent storage, use cloud storage (AWS S3, Cloudinary, etc.) in production.
+# The current setup serves media files directly, which works but files won't persist across deploys.
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

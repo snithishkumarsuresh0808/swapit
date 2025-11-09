@@ -369,7 +369,12 @@ export default function Posts() {
                             key={img.id}
                             src={img.image}
                             alt="Post image"
-                            className="w-full h-20 object-cover rounded border border-gray-200"
+                            className="w-full h-20 object-cover rounded border border-gray-200 bg-gray-100"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOWNhM2FmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2Ugbm90IGZvdW5kPC90ZXh0Pjwvc3ZnPg==';
+                              console.error('Failed to load image:', img.image);
+                            }}
                           />
                         ))}
                       </div>
@@ -386,8 +391,13 @@ export default function Posts() {
                             key={vid.id}
                             src={vid.video}
                             controls
-                            className="w-full rounded border border-gray-200"
-                          />
+                            className="w-full rounded border border-gray-200 bg-gray-900"
+                            onError={(e) => {
+                              console.error('Failed to load video:', vid.video);
+                            }}
+                          >
+                            Your browser does not support the video tag.
+                          </video>
                         ))}
                       </div>
                     </div>
