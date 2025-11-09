@@ -83,7 +83,7 @@ class UserPostsView(APIView):
     def get(self, request):
         # Get all posts for the current user
         posts = Post.objects.filter(user=request.user)
-        serializer = PostSerializer(posts, many=True)
+        serializer = PostSerializer(posts, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -113,7 +113,7 @@ class UserPostsView(APIView):
                 PostVideo.objects.create(post=post, video=video)
 
             # Return the post with images and videos
-            result_serializer = PostSerializer(post)
+            result_serializer = PostSerializer(post, context={'request': request})
             return Response(result_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -125,7 +125,7 @@ class PostDetailView(APIView):
     def get(self, request, pk):
         try:
             post = Post.objects.get(pk=pk, user=request.user)
-            serializer = PostSerializer(post)
+            serializer = PostSerializer(post, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Post.DoesNotExist:
             return Response(
@@ -170,7 +170,7 @@ class PostDetailView(APIView):
                 PostVideo.objects.create(post=post, video=video)
 
             # Return the updated post
-            result_serializer = PostSerializer(post)
+            result_serializer = PostSerializer(post, context={'request': request})
             return Response(result_serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -195,7 +195,7 @@ class AllPostsView(APIView):
     def get(self, request):
         # Get all posts from all users
         posts = Post.objects.all()
-        serializer = PostSerializer(posts, many=True)
+        serializer = PostSerializer(posts, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

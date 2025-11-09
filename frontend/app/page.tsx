@@ -19,6 +19,16 @@ interface Post {
   wanted_skills: string[];
   availability: string[];
   time_slots: string[];
+  images: Array<{
+    id: number;
+    image: string;
+    uploaded_at: string;
+  }>;
+  videos: Array<{
+    id: number;
+    video: string;
+    uploaded_at: string;
+  }>;
   created_at: string;
   updated_at: string;
 }
