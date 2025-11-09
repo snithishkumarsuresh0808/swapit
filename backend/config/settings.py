@@ -150,9 +150,11 @@ CLOUDINARY_STORAGE = {
 # Use Cloudinary for media storage if credentials are provided
 if CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['API_KEY'] and CLOUDINARY_STORAGE['API_SECRET']:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    print(f"✅ CLOUDINARY ENABLED - Using cloud storage: {CLOUDINARY_STORAGE['CLOUD_NAME']}")
 else:
     # Fallback to local filesystem (for development)
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    print("⚠️  CLOUDINARY NOT CONFIGURED - Using local filesystem (files will be lost on redeploy!)")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
