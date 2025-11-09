@@ -162,6 +162,10 @@ CSRF_TRUSTED_ORIGINS = config(
     default='http://localhost:3000,https://swapit-da9t.onrender.com'
 ).split(',')
 
+# Proxy/Host header settings for production (Render, etc.)
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Channels configuration
 ASGI_APPLICATION = 'config.asgi.application'
 
