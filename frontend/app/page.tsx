@@ -296,6 +296,41 @@ export default function Home() {
                       </div>
                     )}
 
+                    {/* Images Preview */}
+                    {post.images && post.images.length > 0 && (
+                      <div className="mt-3">
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {post.images.slice(0, 3).map((img: any, idx: number) => (
+                            <img
+                              key={img.id || idx}
+                              src={img.image}
+                              alt={`Post image ${idx + 1}`}
+                              className="w-full h-24 object-cover rounded border border-gray-200 bg-gray-100"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOWNhM2FmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2U8L3RleHQ+PC9zdmc+';
+                              }}
+                            />
+                          ))}
+                        </div>
+                        {post.images.length > 3 && (
+                          <p className="text-xs text-gray-500 mt-1">+{post.images.length - 3} more</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Videos Preview */}
+                    {post.videos && post.videos.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-600 mb-1.5 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          {post.videos.length} video{post.videos.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Availability */}
                     {(post.availability?.length > 0 || post.time_slots?.length > 0) && (
                       <div className="pt-2 border-t border-gray-100">
