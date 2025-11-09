@@ -16,6 +16,7 @@ export default function CallManager() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
+  const beepIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Get current user ID
@@ -171,20 +172,21 @@ export default function CallManager() {
       oscillator.start();
       setTimeout(() => oscillator.stop(), 200); // 200ms beep
 
+      // Clear any existing beep interval
+      if (beepIntervalRef.current) {
+        clearInterval(beepIntervalRef.current);
+      }
+
       // Repeat beep every 1 second
-      const beepInterval = setInterval(() => {
-        if (incomingCall) {
-          const osc = audioContext.createOscillator();
-          const gain = audioContext.createGain();
-          osc.connect(gain);
-          gain.connect(audioContext.destination);
-          osc.frequency.value = 800;
-          gain.gain.value = 0.3;
-          osc.start();
-          setTimeout(() => osc.stop(), 200);
-        } else {
-          clearInterval(beepInterval);
-        }
+      beepIntervalRef.current = setInterval(() => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.frequency.value = 800;
+        gain.gain.value = 0.3;
+        osc.start();
+        setTimeout(() => osc.stop(), 200);
       }, 1000);
     }
   };
@@ -193,6 +195,11 @@ export default function CallManager() {
     if (ringtoneRef.current) {
       ringtoneRef.current.pause();
       ringtoneRef.current.currentTime = 0;
+    }
+    // Also clear beep interval
+    if (beepIntervalRef.current) {
+      clearInterval(beepIntervalRef.current);
+      beepIntervalRef.current = null;
     }
   };
 

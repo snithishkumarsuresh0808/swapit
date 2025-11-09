@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '@/lib/config';
 
 export default function Sidebar() {
@@ -14,22 +14,7 @@ export default function Sidebar() {
   const [pendingConnectionCount, setPendingConnectionCount] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    fetchMatchCount();
-    fetchUnreadMessages();
-    fetchPendingConnections();
-
-    // Auto-refresh notifications every 5 seconds
-    const interval = setInterval(() => {
-      fetchMatchCount();
-      fetchUnreadMessages();
-      fetchPendingConnections();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [pathname]);
-
-  const fetchMatchCount = async () => {
+  const fetchMatchCount = useCallback(async () => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
 
@@ -101,9 +86,9 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Error fetching match count:', error);
     }
-  };
+  }, []);
 
-  const fetchUnreadMessages = async () => {
+  const fetchUnreadMessages = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -122,9 +107,9 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Error fetching unread messages:', error);
     }
-  };
+  }, []);
 
-  const fetchPendingConnections = async () => {
+  const fetchPendingConnections = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -142,7 +127,22 @@ export default function Sidebar() {
     } catch (error) {
       console.error('Error fetching pending connections:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchMatchCount();
+    fetchUnreadMessages();
+    fetchPendingConnections();
+
+    // Auto-refresh notifications every 30 seconds (reduced from 5 seconds)
+    const interval = setInterval(() => {
+      fetchMatchCount();
+      fetchUnreadMessages();
+      fetchPendingConnections();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchMatchCount, fetchUnreadMessages, fetchPendingConnections, pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
