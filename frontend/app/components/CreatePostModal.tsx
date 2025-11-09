@@ -110,14 +110,38 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newImages = Array.from(e.target.files);
+      const newImages = Array.from(e.target.files).filter(file => {
+        // Validate image files
+        if (!file.type.startsWith('image/')) {
+          alert(`${file.name} is not an image file`);
+          return false;
+        }
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`${file.name} is too large. Max size is 10MB`);
+          return false;
+        }
+        return true;
+      });
       setImages(prev => [...prev, ...newImages]);
     }
   };
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newVideos = Array.from(e.target.files);
+      const newVideos = Array.from(e.target.files).filter(file => {
+        // Validate video files
+        if (!file.type.startsWith('video/')) {
+          alert(`${file.name} is not a video file`);
+          return false;
+        }
+        // Check file size (max 50MB)
+        if (file.size > 50 * 1024 * 1024) {
+          alert(`${file.name} is too large. Max size is 50MB`);
+          return false;
+        }
+        return true;
+      });
       setVideos(prev => [...prev, ...newVideos]);
     }
   };
@@ -339,8 +363,15 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
                     <img
                       src={URL.createObjectURL(image)}
                       alt={`Upload ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                      className="w-full h-24 object-cover rounded-lg border border-gray-200 bg-gray-100"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOWNhM2FmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2U8L3RleHQ+PC9zdmc+';
+                      }}
                     />
+                    <div className="absolute bottom-1 left-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 py-0.5 rounded truncate">
+                      {image.name}
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
@@ -372,16 +403,19 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
               <div className="mt-3 space-y-2">
                 {videos.map((video, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <svg className="w-8 h-8 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-sm text-gray-900 font-medium">{video.name}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 font-medium truncate">{video.name}</p>
+                        <p className="text-xs text-gray-500">{(video.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => removeVideo(index)}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-red-600 hover:text-red-800 flex-shrink-0 ml-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
