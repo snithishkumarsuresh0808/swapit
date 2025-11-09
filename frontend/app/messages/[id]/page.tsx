@@ -150,7 +150,7 @@ export default function Conversation() {
 
               {otherUser.profile_image ? (
                 <img
-                  src={getApiUrl(otherUser.profile_image)}
+                  src={otherUser.profile_image}
                   alt={`${otherUser.first_name} ${otherUser.last_name}`}
                   className="w-8 h-8 rounded-full object-cover"
                 />
@@ -203,7 +203,7 @@ export default function Conversation() {
                       {!isMe && (
                         message.sender.profile_image ? (
                           <img
-                            src={getApiUrl(message.sender.profile_image)}
+                            src={message.sender.profile_image}
                             alt={`${message.sender.first_name} ${message.sender.last_name}`}
                             className="w-7 h-7 rounded-full object-cover flex-shrink-0"
                           />

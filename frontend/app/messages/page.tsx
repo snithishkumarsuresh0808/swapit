@@ -131,7 +131,7 @@ export default function Messages() {
                   >
                     {conversation.user.profile_image ? (
                       <img
-                        src={getApiUrl(conversation.user.profile_image)}
+                        src={conversation.user.profile_image}
                         alt={`${conversation.user.first_name} ${conversation.user.last_name}`}
                         className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                       />

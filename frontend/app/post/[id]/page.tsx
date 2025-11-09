@@ -141,7 +141,7 @@ export default function PostDetail() {
                 >
                   {post.user.profile_image ? (
                     <img
-                      src={getApiUrl(post.user.profile_image)}
+                      src={post.user.profile_image}
                       alt={`${post.user.first_name} ${post.user.last_name}`}
                       className="w-full h-full object-cover"
                     />

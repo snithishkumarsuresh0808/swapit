@@ -367,7 +367,7 @@ export default function Posts() {
                         {post.images.map((img) => (
                           <img
                             key={img.id}
-                            src={getApiUrl(img.image)}
+                            src={img.image}
                             alt="Post image"
                             className="w-full h-20 object-cover rounded border border-gray-200"
                           />
@@ -384,7 +384,7 @@ export default function Posts() {
                         {post.videos.map((vid) => (
                           <video
                             key={vid.id}
-                            src={getApiUrl(vid.video)}
+                            src={vid.video}
                             controls
                             className="w-full rounded border border-gray-200"
                           />

@@ -301,7 +301,7 @@ export default function Connect() {
                     <div className="flex items-center gap-3 mb-3">
                       {request.from_user.profile_image ? (
                         <img
-                          src={getApiUrl(request.from_user.profile_image)}
+                          src={request.from_user.profile_image}
                           alt={`${request.from_user.first_name} ${request.from_user.last_name}`}
                           className="w-14 h-14 rounded-full object-cover"
                         />
@@ -377,7 +377,7 @@ export default function Connect() {
                   >
                     {user.profile_image ? (
                       <img
-                        src={getApiUrl(user.profile_image)}
+                        src={user.profile_image}
                         alt={`${user.first_name} ${user.last_name}`}
                         className="w-12 h-12 rounded-full object-cover"
                       />

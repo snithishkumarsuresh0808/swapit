@@ -40,7 +40,7 @@ export default function Settings() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       if (parsedUser.profile_image) {
-        setPreviewImage(getApiUrl(parsedUser.profile_image));
+        setPreviewImage(parsedUser.profile_image);
       }
     }
     setLoading(false);
@@ -131,7 +131,7 @@ export default function Settings() {
         localStorage.setItem('user', JSON.stringify(data.user));
         // Update preview image with the new profile image
         if (data.user.profile_image) {
-          setPreviewImage(getApiUrl(data.user.profile_image));
+          setPreviewImage(data.user.profile_image);
         }
         // Reset the profile image file state
         setProfileImage(null);

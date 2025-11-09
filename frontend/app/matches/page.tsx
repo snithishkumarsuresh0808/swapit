@@ -306,7 +306,7 @@ export default function Matches() {
                     <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden">
                       {match.user.profile_image ? (
                         <img
-                          src={getApiUrl(match.user.profile_image)}
+                          src={match.user.profile_image}
                           alt={`${match.user.first_name} ${match.user.last_name}`}
                           className="w-full h-full object-cover"
                         />

@@ -117,7 +117,7 @@ export default function UserProfile() {
                   <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden">
                     {userInfo.profile_image ? (
                       <img
-                        src={getApiUrl(userInfo.profile_image)}
+                        src={userInfo.profile_image}
                         alt={`${userInfo.first_name} ${userInfo.last_name}`}
                         className="w-full h-full object-cover"
                       />
@@ -176,7 +176,7 @@ export default function UserProfile() {
                       <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden">
                         {post.user.profile_image ? (
                           <img
-                            src={getApiUrl(post.user.profile_image)}
+                            src={post.user.profile_image}
                             alt={`${post.user.first_name} ${post.user.last_name}`}
                             className="w-full h-full object-cover"
                           />
