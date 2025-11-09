@@ -104,13 +104,17 @@ class UserPostsView(APIView):
 
             # Handle image uploads
             images = request.FILES.getlist('images')
+            print(f"📸 Received {len(images)} images for upload")
             for image in images:
-                PostImage.objects.create(post=post, image=image)
+                created_image = PostImage.objects.create(post=post, image=image)
+                print(f"✅ Saved image: {created_image.image.url}")
 
             # Handle video uploads
             videos = request.FILES.getlist('videos')
+            print(f"🎥 Received {len(videos)} videos for upload")
             for video in videos:
-                PostVideo.objects.create(post=post, video=video)
+                created_video = PostVideo.objects.create(post=post, video=video)
+                print(f"✅ Saved video: {created_video.video.url}")
 
             # Return the post with images and videos
             result_serializer = PostSerializer(post, context={'request': request})
@@ -287,8 +291,10 @@ class UpdateProfileImageView(APIView):
             )
 
         # Update user's profile image
+        print(f"👤 Uploading profile image for user {request.user.id}: {profile_image.name}")
         request.user.profile_image = profile_image
         request.user.save()
+        print(f"✅ Profile image saved: {request.user.profile_image.url}")
 
         return Response(
             {
