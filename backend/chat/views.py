@@ -44,7 +44,7 @@ def get_conversations(request):
     # Sort by last message time
     conversations.sort(key=lambda x: x['last_message'].created_at, reverse=True)
 
-    serializer = ConversationSerializer(conversations, many=True)
+    serializer = ConversationSerializer(conversations, many=True, context={'request': request})
     return Response(serializer.data)
 
 
@@ -68,7 +68,7 @@ def get_messages(request, user_id):
         is_read=False
     ).update(is_read=True)
 
-    serializer = MessageSerializer(messages, many=True)
+    serializer = MessageSerializer(messages, many=True, context={'request': request})
     return Response(serializer.data)
 
 
@@ -103,11 +103,11 @@ def send_connection_request(request):
     ).first()
 
     if existing:
-        return Response({'error': 'Connection request already exists', 'connection': ConnectionSerializer(existing).data}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Connection request already exists', 'connection': ConnectionSerializer(existing, context={'request': request}).data}, status=status.HTTP_400_BAD_REQUEST)
 
     # Create new connection request
     connection = Connection.objects.create(from_user=request.user, to_user=to_user)
-    return Response(ConnectionSerializer(connection).data, status=status.HTTP_201_CREATED)
+    return Response(ConnectionSerializer(connection, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
@@ -131,7 +131,7 @@ def respond_connection_request(request, connection_id):
     connection.save()
 
     # Return connection data with both user names
-    response_data = ConnectionSerializer(connection).data
+    response_data = ConnectionSerializer(connection, context={'request': request}).data
     response_data['message'] = f"You {action}ed connection request from {connection.from_user.first_name} {connection.from_user.last_name}"
     response_data['sender_name'] = f"{connection.from_user.first_name} {connection.from_user.last_name}"
     response_data['accepter_name'] = f"{connection.to_user.first_name} {connection.to_user.last_name}"
@@ -157,7 +157,7 @@ def get_connection_status(request, user_id):
         return Response({
             'status': connection.status,
             'is_sender': connection.from_user == request.user,
-            'connection': ConnectionSerializer(connection).data
+            'connection': ConnectionSerializer(connection, context={'request': request}).data
         })
 
     return Response({'status': 'none'})
@@ -167,8 +167,8 @@ def get_connection_status(request, user_id):
 @permission_classes([IsAuthenticated])
 def get_pending_requests(request):
     """Get all pending connection requests received by the user"""
-    requests = Connection.objects.filter(to_user=request.user, status='pending')
-    return Response(ConnectionSerializer(requests, many=True).data)
+    pending_requests = Connection.objects.filter(to_user=request.user, status='pending')
+    return Response(ConnectionSerializer(pending_requests, many=True, context={'request': request}).data)
 
 
 @api_view(['GET'])
@@ -189,7 +189,7 @@ def get_connected_users(request):
         other_user = connection.to_user if connection.from_user == request.user else connection.from_user
         connected_users.append(other_user)
 
-    serializer = UserSerializer(connected_users, many=True)
+    serializer = UserSerializer(connected_users, many=True, context={'request': request})
     return Response(serializer.data)
 
 

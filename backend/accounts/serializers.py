@@ -33,6 +33,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.profile_image.url)
+            # Fallback: return the URL path if no request context
+            return obj.profile_image.url
         return None
 
 
