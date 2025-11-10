@@ -44,18 +44,23 @@ class RingtoneUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Create ringtone
+        # Deactivate all existing ringtones for this user
+        Ringtone.objects.filter(user=request.user).update(is_active=False)
+
+        # Create ringtone and set as active automatically
         ringtone = Ringtone.objects.create(
             user=request.user,
             name=name,
             audio_file=audio_file,
-            is_active=False
+            is_active=True  # Auto-activate newly uploaded ringtone
         )
+
+        print(f"🔔 New ringtone uploaded and activated for user {request.user.id}: {name}")
 
         serializer = RingtoneSerializer(ringtone, context={'request': request})
         return Response(
             {
-                'message': 'Ringtone uploaded successfully',
+                'message': 'Ringtone uploaded and activated successfully',
                 'ringtone': serializer.data
             },
             status=status.HTTP_201_CREATED

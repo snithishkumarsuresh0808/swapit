@@ -197,9 +197,10 @@ export default function Settings() {
       });
 
       if (response.ok) {
-        setMessage('Ringtone uploaded successfully');
+        const data = await response.json();
+        setMessage(data.message || 'Ringtone uploaded and activated successfully');
         setTimeout(() => setMessage(''), 3000);
-        fetchRingtones(); // Refresh list
+        fetchRingtones(); // Refresh list to show new active ringtone
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to upload ringtone');
