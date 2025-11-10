@@ -145,12 +145,14 @@ CLOUDINARY_STORAGE = {
     'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default=''),
     'API_KEY': config('CLOUDINARY_API_KEY', default=''),
     'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
+    # Support for videos, images, and audio files
+    'RESOURCE_TYPE': 'auto',  # Automatically detect file type (image/video/raw)
 }
 
 # Use Cloudinary for media storage if credentials are provided
 if CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['API_KEY'] and CLOUDINARY_STORAGE['API_SECRET']:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    print(f"✅ CLOUDINARY ENABLED - Using cloud storage: {CLOUDINARY_STORAGE['CLOUD_NAME']}")
+    print(f"✅ CLOUDINARY ENABLED - Using cloud storage for images, videos & audio: {CLOUDINARY_STORAGE['CLOUD_NAME']}")
 else:
     # Fallback to local filesystem (for development)
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
