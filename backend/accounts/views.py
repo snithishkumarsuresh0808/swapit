@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import authenticate
-from .models import User, Profile, Post, PostImage, PostVideo, Ringtone
-from .serializers import UserSerializer, UserDetailSerializer, ProfileSerializer, PostSerializer, RingtoneSerializer
+from .models import User, Profile, Post, PostImage, PostVideo
+from .serializers import UserSerializer, UserDetailSerializer, ProfileSerializer, PostSerializer
 
 
 class SignUpView(generics.CreateAPIView):
