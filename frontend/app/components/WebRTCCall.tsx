@@ -26,6 +26,7 @@ export default function WebRTCCall({
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isVideoCall] = useState(!audioOnly);
+  const [callDuration, setCallDuration] = useState(0);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -35,6 +36,7 @@ export default function WebRTCCall({
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
   const wsReadyRef = useRef(false);
   const outgoingRingtoneRef = useRef<HTMLAudioElement | null>(null);
+  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     initializeCall();
@@ -156,6 +158,7 @@ export default function WebRTCCall({
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
         setCallStatus('connected');
+        startCallDurationTimer();
       }
     };
 
@@ -179,10 +182,43 @@ export default function WebRTCCall({
       console.log('Connection state:', pc.connectionState);
       if (pc.connectionState === 'connected') {
         setCallStatus('connected');
+        startCallDurationTimer();
       } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         setCallStatus('ended');
+        stopCallDurationTimer();
       }
     };
+  };
+
+  const startCallDurationTimer = () => {
+    // Clear any existing timer
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+    }
+
+    // Reset duration and start timer
+    setCallDuration(0);
+    durationIntervalRef.current = setInterval(() => {
+      setCallDuration(prev => prev + 1);
+    }, 1000);
+  };
+
+  const stopCallDurationTimer = () => {
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const sendWebSocketMessage = (message: any) => {
@@ -268,6 +304,7 @@ export default function WebRTCCall({
       });
 
       setCallStatus('connected');
+      startCallDurationTimer();
     } catch (error) {
       console.error('Error handling call offer:', error);
     }
@@ -282,6 +319,7 @@ export default function WebRTCCall({
         new RTCSessionDescription(data.answer)
       );
       setCallStatus('connected');
+      startCallDurationTimer();
     } catch (error) {
       console.error('Error handling call answer:', error);
     }
@@ -336,6 +374,7 @@ export default function WebRTCCall({
 
   const cleanup = () => {
     stopOutgoingRingtone(); // Stop outgoing ringtone on cleanup
+    stopCallDurationTimer(); // Stop duration timer on cleanup
 
     // Stop all tracks
     if (localStreamRef.current) {
@@ -410,7 +449,7 @@ export default function WebRTCCall({
           {callStatus === 'connected' && (
             <>
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p className="text-gray-300 text-lg">Connected</p>
+              <p className="text-gray-300 text-lg">{formatDuration(callDuration)}</p>
             </>
           )}
           {callStatus === 'ended' && (
