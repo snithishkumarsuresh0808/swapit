@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
-from config.cloudinary_storage import VideoCloudinaryStorage, RawCloudinaryStorage
+from config.cloudinary_storage import get_video_storage, get_raw_storage
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -57,7 +57,7 @@ class PostImage(models.Model):
 
 class PostVideo(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='videos')
-    video = models.FileField(upload_to='post_videos/', storage=VideoCloudinaryStorage())
+    video = models.FileField(upload_to='post_videos/', storage=get_video_storage)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -67,7 +67,7 @@ class PostVideo(models.Model):
 class Ringtone(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ringtones')
     name = models.CharField(max_length=100)
-    audio_file = models.FileField(upload_to='ringtones/', storage=RawCloudinaryStorage())
+    audio_file = models.FileField(upload_to='ringtones/', storage=get_raw_storage)
     is_active = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

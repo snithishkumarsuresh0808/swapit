@@ -3,6 +3,8 @@ Custom Cloudinary storage classes for handling different media types.
 This ensures videos use /video/ URLs and images use /image/ URLs.
 """
 from cloudinary_storage.storage import MediaCloudinaryStorage
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
 
 
 class VideoCloudinaryStorage(MediaCloudinaryStorage):
@@ -23,3 +25,20 @@ class RawCloudinaryStorage(MediaCloudinaryStorage):
         options = super()._upload_options(name)
         options['resource_type'] = 'raw'
         return options
+
+
+# Callable storage functions that return the appropriate storage instance
+def get_video_storage():
+    """Returns VideoCloudinaryStorage if configured, otherwise FileSystemStorage"""
+    cloudinary_config = getattr(settings, 'CLOUDINARY_STORAGE', {})
+    if cloudinary_config.get('CLOUD_NAME') and cloudinary_config.get('API_KEY'):
+        return VideoCloudinaryStorage()
+    return FileSystemStorage()
+
+
+def get_raw_storage():
+    """Returns RawCloudinaryStorage if configured, otherwise FileSystemStorage"""
+    cloudinary_config = getattr(settings, 'CLOUDINARY_STORAGE', {})
+    if cloudinary_config.get('CLOUD_NAME') and cloudinary_config.get('API_KEY'):
+        return RawCloudinaryStorage()
+    return FileSystemStorage()
