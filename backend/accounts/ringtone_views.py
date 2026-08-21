@@ -37,10 +37,10 @@ class RingtoneUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate file size (max 5MB)
-        if audio_file.size > 5 * 1024 * 1024:
+        # Validate file size (max 50MB)
+        if audio_file.size > 50 * 1024 * 1024:
             return Response(
-                {'error': 'File size must be less than 5MB'},
+                {'error': 'File size must be less than 50MB'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

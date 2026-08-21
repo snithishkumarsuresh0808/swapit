@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiUrl } from '@/lib/config';
+import BackButton from '../components/BackButton';
 
 export default function Profile() {
   const [skills, setSkills] = useState<string[]>([]);
@@ -124,6 +125,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
+        <BackButton />
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <div className="mb-8">
            

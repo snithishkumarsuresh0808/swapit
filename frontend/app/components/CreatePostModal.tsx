@@ -116,9 +116,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
           alert(`${file.name} is not an image file`);
           return false;
         }
-        // Check file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          alert(`${file.name} is too large. Max size is 10MB`);
+        // Check file size (max 100MB)
+        if (file.size > 100 * 1024 * 1024) {
+          alert(`${file.name} is too large. Max size is 100MB`);
           return false;
         }
         return true;
@@ -135,9 +135,9 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
           alert(`${file.name} is not a video file`);
           return false;
         }
-        // Check file size (max 50MB)
-        if (file.size > 50 * 1024 * 1024) {
-          alert(`${file.name} is too large. Max size is 50MB`);
+        // Check file size (max 100MB)
+        if (file.size > 100 * 1024 * 1024) {
+          alert(`${file.name} is too large. Max size is 100MB`);
           return false;
         }
         return true;
@@ -191,11 +191,11 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-x-hidden">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h2 className="text-2xl font-bold text-gray-900">{isEditing ? 'Edit Post' : 'Create New Post'}</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">{isEditing ? 'Edit Post' : 'Create New Post'}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -207,7 +207,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-8 space-y-8">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-6 sm:space-y-8 min-w-0">
           <p className="text-sm text-gray-600">
             Tell us about your skills and what you'd like to learn
           </p>
@@ -354,7 +354,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
               accept="image/*"
               multiple
               onChange={handleImageUpload}
-              className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="block w-full max-w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 overflow-hidden"
             />
             {images.length > 0 && (
               <div className="mt-3 grid grid-cols-3 gap-3">
@@ -397,7 +397,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmit, initialData
               accept="video/*"
               multiple
               onChange={handleVideoUpload}
-              className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="block w-full max-w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 overflow-hidden"
             />
             {videos.length > 0 && (
               <div className="mt-3 space-y-2">

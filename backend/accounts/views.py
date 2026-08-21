@@ -1,9 +1,12 @@
+import json
+from datetime import datetime
+
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import authenticate
 from .models import User, Profile, Post, PostImage, PostVideo
 from .serializers import UserSerializer, UserDetailSerializer, ProfileSerializer, PostSerializer
@@ -71,31 +74,42 @@ class AllProfilesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profiles = Profile.objects.all()
+        profiles = Profile.objects.select_related('user').all()
         serializer = ProfileSerializer(profiles, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UserPostsView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
         # Get all posts for the current user
-        posts = Post.objects.filter(user=request.user)
+        posts = Post.objects.filter(user=request.user).prefetch_related('images', 'videos')
         serializer = PostSerializer(posts, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
         # Create a new post for the current user
-        import json
+        # Extract post data — support both JSON and form data
+        raw_skills = request.data.get('skills', '[]')
+        raw_wanted = request.data.get('wanted_skills', '[]')
+        raw_avail = request.data.get('availability', '[]')
+        raw_timeslots = request.data.get('time_slots', '[]')
 
-        # Extract post data
+        def parse_field(val):
+            if isinstance(val, list):
+                return val
+            try:
+                return json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                return []
+
         post_data = {
-            'skills': json.loads(request.data.get('skills', '[]')),
-            'wanted_skills': json.loads(request.data.get('wanted_skills', '[]')),
-            'availability': json.loads(request.data.get('availability', '[]')),
-            'time_slots': json.loads(request.data.get('time_slots', '[]')),
+            'skills': parse_field(raw_skills),
+            'wanted_skills': parse_field(raw_wanted),
+            'availability': parse_field(raw_avail),
+            'time_slots': parse_field(raw_timeslots),
         }
 
         serializer = PostSerializer(data=post_data)
@@ -104,17 +118,12 @@ class UserPostsView(APIView):
 
             # Handle image uploads
             images = request.FILES.getlist('images')
-            print(f"📸 Received {len(images)} images for upload")
             for image in images:
-                created_image = PostImage.objects.create(post=post, image=image)
-                print(f"✅ Saved image: {created_image.image.url}")
+                PostImage.objects.create(post=post, image=image)
 
-            # Handle video uploads
             videos = request.FILES.getlist('videos')
-            print(f"🎥 Received {len(videos)} videos for upload")
             for video in videos:
-                created_video = PostVideo.objects.create(post=post, video=video)
-                print(f"✅ Saved video: {created_video.video.url}")
+                PostVideo.objects.create(post=post, video=video)
 
             # Return the post with images and videos
             result_serializer = PostSerializer(post, context={'request': request})
@@ -124,7 +133,7 @@ class UserPostsView(APIView):
 
 class PostDetailView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, pk):
         try:
@@ -138,8 +147,6 @@ class PostDetailView(APIView):
             )
 
     def put(self, request, pk):
-        import json
-
         try:
             post = Post.objects.get(pk=pk, user=request.user)
         except Post.DoesNotExist:
@@ -198,9 +205,48 @@ class AllPostsView(APIView):
 
     def get(self, request):
         # Get all posts from all users
-        posts = Post.objects.all()
+        posts = Post.objects.select_related('user').prefetch_related('images', 'videos').all()
         serializer = PostSerializer(posts, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MatchCountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Count new matches for the current user since the last visit"""
+        user = request.user
+
+        my_skills = set()
+        my_wanted = set()
+        for post in Post.objects.filter(user=user):
+            my_skills.update(s.lower().strip() for s in post.skills if s)
+            my_wanted.update(s.lower().strip() for s in post.wanted_skills if s)
+
+        last_visit_param = request.query_params.get('last_visit')
+        last_visit_date = None
+        if last_visit_param:
+            try:
+                last_visit_date = datetime.fromisoformat(last_visit_param.replace('Z', '+00:00'))
+            except ValueError:
+                last_visit_date = None
+
+        count = 0
+        processed = set()
+        for post in Post.objects.all():
+            if post.user_id == user.id or post.user_id in processed:
+                continue
+            if last_visit_date and post.created_at <= last_visit_date:
+                continue
+
+            they_can_teach = any(s and s.lower().strip() in my_wanted for s in post.skills)
+            can_teach_them = any(s and s.lower().strip() in my_skills for s in post.wanted_skills)
+
+            if they_can_teach or can_teach_them:
+                count += 1
+                processed.add(post.user_id)
+
+        return Response({'count': count})
 
 
 class ProfileView(APIView):
@@ -279,7 +325,7 @@ class ChangePasswordView(APIView):
 
 class UpdateProfileImageView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
         profile_image = request.FILES.get('profile_image')
@@ -291,10 +337,8 @@ class UpdateProfileImageView(APIView):
             )
 
         # Update user's profile image
-        print(f"👤 Uploading profile image for user {request.user.id}: {profile_image.name}")
         request.user.profile_image = profile_image
         request.user.save()
-        print(f"✅ Profile image saved: {request.user.profile_image.url}")
 
         return Response(
             {

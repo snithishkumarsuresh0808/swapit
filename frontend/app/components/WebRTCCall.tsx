@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { getWsUrl } from '@/lib/config';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { registerCallSignalHandler, sendCallSignal } from '@/lib/callSignals';
+import { getApiUrl } from '@/lib/config';
 
 interface WebRTCCallProps {
   currentUserId: number;
@@ -9,8 +10,14 @@ interface WebRTCCallProps {
   otherUserName: string;
   isIncoming?: boolean;
   audioOnly?: boolean;
+  offer?: RTCSessionDescriptionInit;
   onClose: () => void;
 }
+
+const RING_TIMEOUT_MS = 45000;
+const MAX_CALL_DURATION_SECONDS = 3600;
+const RECONNECT_INTERVAL_MS = 5000;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export default function WebRTCCall({
   currentUserId,
@@ -18,94 +25,99 @@ export default function WebRTCCall({
   otherUserName,
   isIncoming = false,
   audioOnly = true,
+  offer,
   onClose,
 }: WebRTCCallProps) {
-  const [callStatus, setCallStatus] = useState<'calling' | 'ringing' | 'connected' | 'ended'>(
+  const [callStatus, setCallStatus] = useState<'calling' | 'ringing' | 'connected' | 'ended' | 'reconnecting'>(
     isIncoming ? 'ringing' : 'calling'
   );
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isVideoCall] = useState(!audioOnly);
+  const [isCameraOn, setIsCameraOn] = useState(isVideoCall);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor' | 'disconnected'>('excellent');
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const websocketRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
-  const wsReadyRef = useRef(false);
+  const pendingRemoteCandidatesRef = useRef<RTCIceCandidate[]>([]);
   const outgoingRingtoneRef = useRef<HTMLAudioElement | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const ringTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const callStatusRef = useRef(callStatus);
+  const callDurationRef = useRef(0);
+  const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
+    callStatusRef.current = callStatus;
+  }, [callStatus]);
+
+  useEffect(() => {
+    const unregister = registerCallSignalHandler((signal) => {
+      if (signal.sender_id !== otherUserId) return;
+
+      switch (signal.type) {
+        case 'call-answer':
+          if (!isIncoming && signal.payload?.answer) {
+            void handleCallAnswer(signal.payload.answer);
+          }
+          break;
+        case 'ice-candidate':
+          if (signal.payload?.candidate) {
+            void handleIceCandidate(signal.payload.candidate);
+          }
+          break;
+        case 'call-end':
+          stopOutgoingRingtone();
+          stopCallDurationTimer();
+          setCallStatus('ended');
+          cleanup();
+          onClose();
+          break;
+      }
+    });
+
     initializeCall();
 
-    // Initialize outgoing ringtone for calling state
     if (!isIncoming && typeof window !== 'undefined') {
-      const audio = new Audio('/sounds/calling.mp3');
+      const audio = new Audio('/sounds/calling.wav');
       audio.loop = true;
       audio.volume = 0.5;
-
-      // Handle load error - file might not exist
       audio.addEventListener('error', () => {
-        console.warn('Outgoing ringtone file not found, will use fallback beep');
         outgoingRingtoneRef.current = null;
       });
-
       outgoingRingtoneRef.current = audio;
     }
 
     return () => {
+      unregister();
       cleanup();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeCall = async () => {
     try {
-      // Create WebSocket connection first
-      const ws = new WebSocket(getWsUrl(`/ws/call/${currentUserId}/`));
-      websocketRef.current = ws;
-
-      ws.onopen = async () => {
-        console.log('WebSocket connected');
-        wsReadyRef.current = true;
-
-        // Flush queued ICE candidates
-        while (iceCandidatesQueue.current.length > 0) {
-          const candidate = iceCandidatesQueue.current.shift();
-          if (candidate) {
-            sendWebSocketMessage({
-              type: 'ice-candidate',
-              candidate: candidate,
-              peer_id: otherUserId,
-            });
+      await setupMediaAndPeerConnection();
+      if (!isIncoming) {
+        await makeCall();
+        ringTimeoutRef.current = setTimeout(() => {
+          if (callStatusRef.current === 'calling' || callStatusRef.current === 'ringing') {
+            sendCallSignal(otherUserId, 'call-end', {});
+            cleanup();
+            onClose();
           }
-        }
-
-        // Get user media after WebSocket is ready
-        await setupMediaAndPeerConnection();
-
-        // If not incoming call, initiate the call
-        if (!isIncoming) {
-          makeCall();
-        }
-      };
-
-      ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        await handleWebSocketMessage(data);
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        alert('Connection error. Please try again.');
-        onClose();
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-      };
+        }, RING_TIMEOUT_MS);
+      } else if (offer) {
+        await answerIncomingCall();
+      }
     } catch (error) {
       console.error('Error initializing call:', error);
       alert('Could not initialize call. Please try again.');
@@ -115,7 +127,6 @@ export default function WebRTCCall({
 
   const setupMediaAndPeerConnection = async () => {
     try {
-      // Get user media (audio and optionally video)
       const stream = await navigator.mediaDevices.getUserMedia({
         video: isVideoCall,
         audio: true,
@@ -147,14 +158,11 @@ export default function WebRTCCall({
     const pc = new RTCPeerConnection(configuration);
     peerConnectionRef.current = pc;
 
-    // Add local stream tracks to peer connection
     stream.getTracks().forEach((track) => {
       pc.addTrack(track, stream);
     });
 
-    // Handle incoming tracks
     pc.ontrack = (event) => {
-      console.log('Received remote track');
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
         setCallStatus('connected');
@@ -162,44 +170,100 @@ export default function WebRTCCall({
       }
     };
 
-    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        if (wsReadyRef.current && websocketRef.current?.readyState === WebSocket.OPEN) {
-          sendWebSocketMessage({
-            type: 'ice-candidate',
-            candidate: event.candidate,
-            peer_id: otherUserId,
-          });
+        if (peerConnectionRef.current?.remoteDescription) {
+          sendCallSignal(otherUserId, 'ice-candidate', { candidate: event.candidate });
         } else {
-          // Queue candidates if WebSocket not ready
           iceCandidatesQueue.current.push(event.candidate);
         }
       }
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
-      if (pc.connectionState === 'connected') {
+      const state = pc.connectionState;
+      if (state === 'connected') {
         setCallStatus('connected');
         startCallDurationTimer();
-      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        reconnectAttemptsRef.current = 0;
+        setConnectionQuality('excellent');
+      } else if (state === 'disconnected') {
+        setConnectionQuality('poor');
+        attemptReconnect();
+      } else if (state === 'failed') {
+        setConnectionQuality('disconnected');
+        setCallStatus('reconnecting');
+        attemptReconnect();
+      } else if (state === 'closed') {
         setCallStatus('ended');
         stopCallDurationTimer();
       }
     };
+
+    pc.oniceconnectionstatechange = () => {
+      const iceState = pc.iceConnectionState;
+      if (iceState === 'connected' || iceState === 'completed') {
+        setConnectionQuality('excellent');
+      } else if (iceState === 'checking') {
+        setConnectionQuality('good');
+      } else if (iceState === 'disconnected' || iceState === 'failed') {
+        setConnectionQuality('poor');
+      }
+    };
   };
 
+  const attemptReconnect = useCallback(() => {
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      setCallStatus('ended');
+      stopCallDurationTimer();
+      cleanup();
+      onClose();
+      return;
+    }
+
+    reconnectAttemptsRef.current += 1;
+    setCallStatus('reconnecting');
+
+    if (peerConnectionRef.current && localStreamRef.current) {
+      const pc = peerConnectionRef.current;
+      const stream = localStreamRef.current;
+
+      const senders = pc.getSenders();
+      const newStream = screenStreamRef.current || stream;
+
+      senders.forEach((sender) => {
+        const matchingTrack = newStream.getTracks().find(
+          (track) => track.kind === sender.track?.kind
+        );
+        if (matchingTrack && sender.track) {
+          sender.replaceTrack(matchingTrack).catch(() => {});
+        }
+      });
+
+      pc.restartIce();
+    }
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (callStatusRef.current === 'reconnecting') {
+        attemptReconnect();
+      }
+    }, RECONNECT_INTERVAL_MS);
+  }, [onClose]);
+
   const startCallDurationTimer = () => {
-    // Clear any existing timer
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
     }
 
-    // Reset duration and start timer
+    callDurationRef.current = 0;
     setCallDuration(0);
     durationIntervalRef.current = setInterval(() => {
-      setCallDuration(prev => prev + 1);
+      callDurationRef.current += 1;
+      setCallDuration(callDurationRef.current);
+
+      if (callDurationRef.current >= MAX_CALL_DURATION_SECONDS && callStatusRef.current === 'connected') {
+        hangUp();
+      }
     }, 1000);
   };
 
@@ -214,44 +278,68 @@ export default function WebRTCCall({
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-
     if (hrs > 0) {
       return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const sendWebSocketMessage = (message: any) => {
-    if (websocketRef.current?.readyState === WebSocket.OPEN) {
-      websocketRef.current.send(JSON.stringify(message));
-    } else {
-      console.error('WebSocket not open, cannot send message');
-    }
-  };
-
   const makeCall = async () => {
     if (!peerConnectionRef.current) return;
-
     try {
-      // Play outgoing ringtone
       if (outgoingRingtoneRef.current) {
-        outgoingRingtoneRef.current.play().catch(err => console.error('Error playing outgoing ringtone:', err));
+        outgoingRingtoneRef.current.play().catch(() => {});
       }
-
       const offer = await peerConnectionRef.current.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: isVideoCall,
       });
       await peerConnectionRef.current.setLocalDescription(offer);
 
-      sendWebSocketMessage({
-        type: 'call-offer',
-        offer: offer,
-        recipient_id: otherUserId,
-        caller_name: 'You',
-      });
+      const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const callerName = userData
+        ? `${JSON.parse(userData).first_name} ${JSON.parse(userData).last_name}`.trim() || 'Unknown'
+        : 'Unknown';
+
+      sendCallSignal(otherUserId, 'call-offer', { offer, caller_name: callerName });
     } catch (error) {
       console.error('Error making call:', error);
+    }
+  };
+
+  const answerIncomingCall = async () => {
+    if (!offer || !peerConnectionRef.current) return;
+    try {
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnectionRef.current.createAnswer();
+      await peerConnectionRef.current.setLocalDescription(answer);
+      sendCallSignal(otherUserId, 'call-answer', { answer });
+      await flushCandidateQueues();
+      setCallStatus('connected');
+      startCallDurationTimer();
+    } catch (error) {
+      console.error('Error answering incoming call:', error);
+    }
+  };
+
+  const flushCandidateQueues = async () => {
+    if (!peerConnectionRef.current) return;
+
+    while (iceCandidatesQueue.current.length > 0) {
+      const candidate = iceCandidatesQueue.current.shift();
+      if (candidate) {
+        sendCallSignal(otherUserId, 'ice-candidate', { candidate });
+      }
+    }
+
+    const pending = pendingRemoteCandidatesRef.current;
+    pendingRemoteCandidatesRef.current = [];
+    for (const candidate of pending) {
+      try {
+        await peerConnectionRef.current.addIceCandidate(candidate);
+      } catch (error) {
+        console.error('Error adding queued ICE candidate:', error);
+      }
     }
   };
 
@@ -262,62 +350,12 @@ export default function WebRTCCall({
     }
   };
 
-  const handleWebSocketMessage = async (data: any) => {
-    console.log('Received WebSocket message:', data.type);
-
-    switch (data.type) {
-      case 'call-offer':
-        await handleCallOffer(data);
-        break;
-
-      case 'call-answer':
-        await handleCallAnswer(data);
-        break;
-
-      case 'ice-candidate':
-        await handleIceCandidate(data);
-        break;
-
-      case 'call-end':
-        setCallStatus('ended');
-        cleanup();
-        onClose();
-        break;
-    }
-  };
-
-  const handleCallOffer = async (data: any) => {
+  const handleCallAnswer = async (answer: RTCSessionDescriptionInit) => {
     if (!peerConnectionRef.current) return;
-
     try {
-      await peerConnectionRef.current.setRemoteDescription(
-        new RTCSessionDescription(data.offer)
-      );
-
-      const answer = await peerConnectionRef.current.createAnswer();
-      await peerConnectionRef.current.setLocalDescription(answer);
-
-      sendWebSocketMessage({
-        type: 'call-answer',
-        answer: answer,
-        caller_id: data.caller_id,
-      });
-
-      setCallStatus('connected');
-      startCallDurationTimer();
-    } catch (error) {
-      console.error('Error handling call offer:', error);
-    }
-  };
-
-  const handleCallAnswer = async (data: any) => {
-    if (!peerConnectionRef.current) return;
-
-    try {
-      stopOutgoingRingtone(); // Stop outgoing ringtone when call is answered
-      await peerConnectionRef.current.setRemoteDescription(
-        new RTCSessionDescription(data.answer)
-      );
+      stopOutgoingRingtone();
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      await flushCandidateQueues();
       setCallStatus('connected');
       startCallDurationTimer();
     } catch (error) {
@@ -325,13 +363,15 @@ export default function WebRTCCall({
     }
   };
 
-  const handleIceCandidate = async (data: any) => {
+  const handleIceCandidate = async (candidate: RTCIceCandidateInit) => {
     if (!peerConnectionRef.current) return;
-
     try {
-      await peerConnectionRef.current.addIceCandidate(
-        new RTCIceCandidate(data.candidate)
-      );
+      const iceCandidate = new RTCIceCandidate(candidate);
+      if (!peerConnectionRef.current.remoteDescription) {
+        pendingRemoteCandidatesRef.current.push(iceCandidate);
+        return;
+      }
+      await peerConnectionRef.current.addIceCandidate(iceCandidate);
     } catch (error) {
       console.error('Error adding ICE candidate:', error);
     }
@@ -344,6 +384,71 @@ export default function WebRTCCall({
         audioTrack.enabled = !audioTrack.enabled;
         setIsMuted(!audioTrack.enabled);
       }
+    }
+  };
+
+  const toggleCamera = async () => {
+    if (!isVideoCall || !localStreamRef.current || !peerConnectionRef.current) return;
+
+    if (isCameraOn) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = false;
+        setIsCameraOn(false);
+      }
+    } else {
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const sender = peerConnectionRef.current.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newVideoTrack);
+        }
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = newStream;
+        }
+        localStreamRef.current.addTrack(newVideoTrack);
+        setIsCameraOn(true);
+      } catch (error) {
+        console.error('Error enabling camera:', error);
+      }
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (!peerConnectionRef.current) return;
+
+    if (isScreenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(t => t.stop());
+        screenStreamRef.current = null;
+      }
+      const sender = peerConnectionRef.current.getSenders().find(s => s.track?.kind === 'video');
+      if (sender && localStreamRef.current) {
+        const videoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.enabled = isCameraOn;
+          await sender.replaceTrack(videoTrack);
+        }
+      }
+      setIsScreenSharing(false);
+      return;
+    }
+
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      const sender = peerConnectionRef.current.getSenders().find(s => s.track?.kind === 'video');
+      if (sender) {
+        await sender.replaceTrack(screenTrack);
+      }
+      screenStreamRef.current = screenStream;
+      setIsScreenSharing(true);
+      screenTrack.onended = () => {
+        toggleScreenShare();
+      };
+    } catch (error) {
+      console.error('Error sharing screen:', error);
     }
   };
 
@@ -360,48 +465,94 @@ export default function WebRTCCall({
     }
   };
 
-  const endCall = () => {
-    stopOutgoingRingtone(); // Stop outgoing ringtone when call ends
+  const copyMeetingLink = async () => {
+    const link = `${window.location.origin}/messages/${otherUserId}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      setCopiedLink(false);
+    }
+  };
 
-    sendWebSocketMessage({
-      type: 'call-end',
-      peer_id: otherUserId,
-    });
+  const logCallHistory = useCallback(async (outcome: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await fetch(getApiUrl('/api/messages/call-history/'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          callee_id: otherUserId,
+          call_type: isVideoCall ? 'video' : 'audio',
+          outcome,
+          duration_seconds: callDurationRef.current,
+        }),
+      });
+    } catch {}
+  }, [otherUserId, isVideoCall]);
+
+  const hangUp = async () => {
+    stopOutgoingRingtone();
+    sendCallSignal(otherUserId, 'call-end', {});
+
+    const outcome = callDurationRef.current > 0 ? 'completed' : 'missed';
+    await logCallHistory(outcome);
 
     cleanup();
     onClose();
   };
 
   const cleanup = () => {
-    stopOutgoingRingtone(); // Stop outgoing ringtone on cleanup
-    stopCallDurationTimer(); // Stop duration timer on cleanup
+    stopOutgoingRingtone();
+    stopCallDurationTimer();
 
-    // Stop all tracks
+    if (ringTimeoutRef.current) {
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = null;
+    }
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
     }
 
-    // Close peer connection
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
     }
 
-    // Close WebSocket
-    if (websocketRef.current) {
-      websocketRef.current.close();
-    }
-
-    wsReadyRef.current = false;
+    iceCandidatesQueue.current = [];
+    pendingRemoteCandidatesRef.current = [];
   };
+
+  const qualityColor = {
+    excellent: 'bg-green-400',
+    good: 'bg-yellow-400',
+    poor: 'bg-red-400',
+    disconnected: 'bg-red-600',
+  }[connectionQuality];
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black z-50 flex flex-col items-center justify-center">
-      {/* Audio element for remote stream (hidden for audio calls) */}
       {!isVideoCall && (
         <audio ref={remoteVideoRef as any} autoPlay playsInline />
       )}
 
-      {/* Video elements for video calls */}
       {isVideoCall && (
         <>
           <video
@@ -410,7 +561,7 @@ export default function WebRTCCall({
             playsInline
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute top-4 right-4 w-32 h-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg">
+          <div className="absolute top-4 right-4 w-32 h-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg z-20">
             <video
               ref={localVideoRef}
               autoPlay
@@ -424,15 +575,27 @@ export default function WebRTCCall({
 
       {/* Call Status UI */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* User Avatar */}
         <div className="w-32 h-32 rounded-full bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center text-white text-5xl font-bold mb-6 shadow-2xl">
           {otherUserName.charAt(0)}
         </div>
 
-        {/* User Name */}
         <h2 className="text-white text-3xl font-bold mb-2">{otherUserName}</h2>
 
-        {/* Call Status */}
+        {/* Connection quality indicator */}
+        {callStatus === 'connected' && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className={`w-2 h-2 rounded-full ${qualityColor}`}></div>
+            <span className="text-gray-400 text-xs capitalize">{connectionQuality}</span>
+          </div>
+        )}
+
+        {callStatus === 'reconnecting' && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+            <span className="text-yellow-400 text-xs">Reconnecting...</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 mb-8">
           {callStatus === 'calling' && (
             <>
@@ -461,7 +624,7 @@ export default function WebRTCCall({
         </div>
 
         {/* Call Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap justify-center max-w-sm">
           {/* Mute Button */}
           <div className="flex flex-col items-center">
             <button
@@ -486,13 +649,13 @@ export default function WebRTCCall({
                 </svg>
               )}
             </button>
-            <span className="text-white text-xs mt-2 font-medium">{isMuted ? 'Muted' : 'Mute'}</span>
+            <span className="text-white text-[10px] mt-2 font-medium">{isMuted ? 'Muted' : 'Mute'}</span>
           </div>
 
           {/* End Call Button */}
           <div className="flex flex-col items-center">
             <button
-              onClick={endCall}
+              onClick={hangUp}
               className="p-5 bg-red-600 hover:bg-red-700 rounded-full transition-all shadow-2xl transform hover:scale-110 hover:rotate-12 ring-4 ring-red-400 ring-opacity-50"
               title="End Call"
             >
@@ -500,10 +663,55 @@ export default function WebRTCCall({
                 <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
               </svg>
             </button>
-            <span className="text-white text-xs mt-2 font-medium">End</span>
+            <span className="text-white text-[10px] mt-2 font-medium">End</span>
           </div>
 
-          {/* Speaker Button (for audio calls) */}
+          {/* Camera Toggle (video calls only) */}
+          {isVideoCall && (
+            <div className="flex flex-col items-center">
+              <button
+                onClick={toggleCamera}
+                className={`p-4 rounded-full transition-all shadow-2xl transform hover:scale-110 ${
+                  !isCameraOn
+                    ? 'bg-red-600 hover:bg-red-700 ring-4 ring-red-400 ring-opacity-50'
+                    : 'bg-gray-800 hover:bg-gray-700'
+                }`}
+                title={isCameraOn ? 'Turn off camera' : 'Turn on camera'}
+              >
+                {isCameraOn ? (
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-5 4h4a2 2 0 002-2V8a2 2 0 00-2-2h-4m-8 8V8a2 2 0 012-2h2" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.36 5.64a9 9 0 010 12.73M15.54 8.46a5 5 0 010 7.07M12 12h.01M4.93 4.93l14.14 14.14" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-5 4h4a2 2 0 002-2V8a2 2 0 00-2-2h-4m-8 8V8a2 2 0 012-2h2" />
+                  </svg>
+                )}
+              </button>
+              <span className="text-white text-[10px] mt-2 font-medium">{isCameraOn ? 'Camera' : 'Off'}</span>
+            </div>
+          )}
+
+          {/* Screen Share */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={toggleScreenShare}
+              className={`p-4 rounded-full transition-all shadow-2xl transform hover:scale-110 ${
+                isScreenSharing
+                  ? 'bg-green-600 hover:bg-green-700 ring-4 ring-green-400 ring-opacity-50'
+                  : 'bg-gray-800 hover:bg-gray-700'
+              }`}
+              title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+            >
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <span className="text-white text-[10px] mt-2 font-medium">{isScreenSharing ? 'Sharing' : 'Share'}</span>
+          </div>
+
+          {/* Speaker Button (audio calls) */}
           {!isVideoCall && (
             <div className="flex flex-col items-center">
               <button
@@ -525,9 +733,29 @@ export default function WebRTCCall({
                   </svg>
                 )}
               </button>
-              <span className="text-white text-xs mt-2 font-medium">{isSpeakerOn ? 'Speaker' : 'Muted'}</span>
+              <span className="text-white text-[10px] mt-2 font-medium">{isSpeakerOn ? 'Speaker' : 'Muted'}</span>
             </div>
           )}
+
+          {/* Copy Link */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={copyMeetingLink}
+              className="p-4 rounded-full bg-gray-800 hover:bg-gray-700 transition-all shadow-2xl transform hover:scale-110"
+              title="Copy meeting link"
+            >
+              {copiedLink ? (
+                <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              )}
+            </button>
+            <span className="text-white text-[10px] mt-2 font-medium">{copiedLink ? 'Copied' : 'Link'}</span>
+          </div>
         </div>
       </div>
 

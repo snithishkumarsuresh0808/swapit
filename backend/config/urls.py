@@ -40,6 +40,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('accounts.urls')),
     path('api/messages/', include('chat.urls')),
+    path('api/skills/', include('skills.urls')),
+    path('api/gamification/', include('gamification.urls')),
 ]
 
 # Serve media files in both development and production

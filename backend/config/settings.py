@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'channels',
     'accounts',
     'chat',
+    'skills',
+    'gamification',
 ]
 
 MIDDLEWARE = [
@@ -56,6 +58,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'config.middleware.TrailingSlashMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -176,7 +179,7 @@ REST_FRAMEWORK = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000'
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:2002,http://127.0.0.1:2002'
 ).split(',')
 
 CORS_ALLOW_CREDENTIALS = True
@@ -184,7 +187,7 @@ CORS_ALLOW_CREDENTIALS = True
 # CSRF settings for production
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000,https://swapit-da9t.onrender.com'
+    default='http://localhost:3000,http://localhost:3001,http://localhost:2002,https://swapit-da9t.onrender.com'
 ).split(',')
 
 # Proxy/Host header settings for production (Render, etc.)

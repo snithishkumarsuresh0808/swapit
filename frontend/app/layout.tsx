@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
-import CallManager from "./components/CallManager";
+
+const CallManager = dynamic(() => import("./components/CallManager"), {
+  ssr: false,
+});
 
 const inter = Inter({
   variable: "--font-inter",

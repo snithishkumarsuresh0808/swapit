@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getApiUrl } from '@/lib/config';
+import BackButton from '../components/BackButton';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -28,11 +29,10 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store the token in localStorage
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-
-        // Redirect to feed page after login
+        document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 30}`;
+        document.cookie = `user=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=${60 * 60 * 24 * 30}`;
         router.push('/');
       } else {
         setError(data.error || data.email?.[0] || data.password?.[0] || 'Invalid credentials');
@@ -43,8 +43,9 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="flex min-h-screen items-start justify-center bg-white px-4 pt-4 sm:pt-10">
+      <div className="w-full max-w-md space-y-6">
+        <BackButton label="" />
         {/* Logo */}
         <div className="flex justify-center">
           <div className="flex items-center gap-3">
@@ -60,17 +61,17 @@ export default function Login() {
         </div>
 
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-gray-900">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-1.5 text-center text-sm text-gray-600">
             Or{' '}
             <Link href="/signup" className="font-medium text-green-600 hover:text-green-500">
               create a new account
             </Link>
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
               <label htmlFor="email" className="sr-only">

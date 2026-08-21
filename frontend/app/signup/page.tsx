@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getApiUrl } from '@/lib/config';
+import BackButton from '../components/BackButton';
 
 export default function SignUp() {
   const [firstName, setFirstName] = useState('');
@@ -61,35 +62,36 @@ export default function SignUp() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="flex h-screen overflow-hidden items-start justify-center bg-white px-4 pt-2 sm:pt-4">
+      <div className="w-full max-w-md space-y-4 overflow-y-auto">
+        <BackButton label="" />
         {/* Logo */}
         <div className="flex justify-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Image
               src="/logo.png"
               alt="SwapIt Logo"
-              width={50}
-              height={50}
+              width={38}
+              height={38}
               className="rounded-lg"
             />
-            <h1 className="text-3xl font-bold text-gray-900">SwapIt</h1>
+            <h1 className="text-2xl font-bold text-gray-900">SwapIt</h1>
           </div>
         </div>
 
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900">
             Create your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-1.5 text-center text-sm text-gray-600">
             Already have an account?{' '}
             <Link href="/login" className="font-medium text-green-600 hover:text-green-500">
               Login
             </Link>
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
+        <form className="space-y-3" onSubmit={handleSubmit}>
+          <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="firstName" className="sr-only">
@@ -200,18 +202,18 @@ export default function SignUp() {
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
+            <div className="rounded-md bg-red-50 p-3">
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
           {success && (
-            <div className="rounded-md bg-green-50 p-4">
+            <div className="rounded-md bg-green-50 p-3">
               <p className="text-sm text-green-800">{success}</p>
             </div>
           )}
 
-          <div>
+          <div className="pt-1">
             <button
               type="submit"
               className="group relative flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"

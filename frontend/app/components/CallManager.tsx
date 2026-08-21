@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getWsUrl, getApiUrl } from '@/lib/config';
+import { getApiUrl } from '@/lib/config';
+import { registerCallSignalHandler, sendCallSignal } from '@/lib/callSignals';
 import WebRTCCall from './WebRTCCall';
 
 interface IncomingCall {
@@ -14,20 +15,40 @@ export default function CallManager() {
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [showCallUI, setShowCallUI] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const websocketRef = useRef<WebSocket | null>(null);
+  const incomingCallRef = useRef<IncomingCall | null>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const beepIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Get current user ID
+    const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
-    if (userData) {
-      const user = JSON.parse(userData);
-      setCurrentUserId(user.id);
 
-      // Initialize WebSocket for incoming calls
-      initializeCallListener(user.id);
-    }
+    // Skip initialization entirely for unauthenticated users
+    if (!token || !userData) return;
+
+    const user = JSON.parse(userData);
+    setCurrentUserId(user.id);
+
+    // Register handler for incoming call signals (delivered via HTTP polling)
+    const unregister = registerCallSignalHandler((signal) => {
+      if (signal.type === 'call-offer') {
+        if (incomingCallRef.current) return; // already ringing
+        handleIncomingCall({
+          callerId: signal.sender_id,
+          callerName: signal.sender_name || 'Unknown',
+          offer: signal.payload?.offer,
+        });
+      } else if (signal.type === 'call-end') {
+        const current = incomingCallRef.current;
+        if (current && signal.sender_id === current.callerId) {
+          // Caller hung up while we were ringing - dismiss the ring
+          stopRingtone();
+          setIncomingCall(null);
+          incomingCallRef.current = null;
+        }
+      }
+    });
 
     // Initialize ringtone - fetch active ringtone from backend
     if (typeof window !== 'undefined') {
@@ -40,9 +61,7 @@ export default function CallManager() {
     }
 
     return () => {
-      if (websocketRef.current) {
-        websocketRef.current.close();
-      }
+      unregister();
       stopRingtone();
     };
   }, []);
@@ -51,7 +70,7 @@ export default function CallManager() {
     const token = localStorage.getItem('token');
     if (!token) {
       // Fallback to default
-      ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+      ringtoneRef.current = new Audio('/sounds/ringtone.wav');
       ringtoneRef.current.loop = true;
       ringtoneRef.current.volume = 0.7;
       ringtoneRef.current.load();
@@ -73,7 +92,7 @@ export default function CallManager() {
         ringtoneRef.current.load();
       } else {
         // No active ringtone, use default
-        ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+        ringtoneRef.current = new Audio('/sounds/ringtone.wav');
         ringtoneRef.current.loop = true;
         ringtoneRef.current.volume = 0.7;
         ringtoneRef.current.load();
@@ -81,51 +100,15 @@ export default function CallManager() {
     } catch (error) {
       console.error('Error fetching active ringtone:', error);
       // Fallback to default
-      ringtoneRef.current = new Audio('/sounds/ringtone.mp3');
+      ringtoneRef.current = new Audio('/sounds/ringtone.wav');
       ringtoneRef.current.loop = true;
       ringtoneRef.current.volume = 0.7;
       ringtoneRef.current.load();
     }
   };
 
-  const initializeCallListener = (userId: number) => {
-    const ws = new WebSocket(getWsUrl(`/ws/call/${userId}/`));
-    websocketRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('Call listener WebSocket connected');
-    };
-
-    ws.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === 'call-offer') {
-        handleIncomingCall(data);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('Call listener WebSocket error:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('Call listener WebSocket disconnected');
-      // Attempt to reconnect after 3 seconds
-      setTimeout(() => {
-        if (currentUserId) {
-          initializeCallListener(currentUserId);
-        }
-      }, 3000);
-    };
-  };
-
-  const handleIncomingCall = (data: any) => {
-    const call: IncomingCall = {
-      callerId: data.caller_id,
-      callerName: data.caller_name || 'Unknown',
-      offer: data.offer,
-    };
-
+  const handleIncomingCall = (call: IncomingCall) => {
+    incomingCallRef.current = call;
     setIncomingCall(call);
     playRingtone();
     showBrowserNotification(call.callerName);
@@ -219,23 +202,42 @@ export default function CallManager() {
     setShowCallUI(true);
   };
 
-  const rejectCall = () => {
+  const rejectCall = async () => {
     stopRingtone();
 
     // Send rejection message
-    if (websocketRef.current?.readyState === WebSocket.OPEN && incomingCall) {
-      websocketRef.current.send(JSON.stringify({
-        type: 'call-end',
-        peer_id: incomingCall.callerId,
-      }));
+    if (incomingCall) {
+      sendCallSignal(incomingCall.callerId, 'call-end', {});
+
+      // Log rejected call as missed
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          await fetch(getApiUrl('/api/messages/call-history/'), {
+            method: 'POST',
+            headers: {
+              'Authorization': `Token ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              callee_id: incomingCall.callerId,
+              call_type: 'audio',
+              outcome: 'missed',
+              duration_seconds: 0,
+            }),
+          });
+        } catch {}
+      }
     }
 
     setIncomingCall(null);
+    incomingCallRef.current = null;
   };
 
   const handleCallClose = () => {
     setShowCallUI(false);
     setIncomingCall(null);
+    incomingCallRef.current = null;
   };
 
   return (
@@ -305,6 +307,7 @@ export default function CallManager() {
           otherUserId={incomingCall.callerId}
           otherUserName={incomingCall.callerName}
           isIncoming={true}
+          offer={incomingCall.offer}
           onClose={handleCallClose}
         />
       )}

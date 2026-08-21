@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     SignUpView, LoginView, ProfileView, AllProfilesView,
-    UserPostsView, PostDetailView, AllPostsView,
+    UserPostsView, PostDetailView, AllPostsView, MatchCountView,
     ChangePasswordView, UpdateProfileImageView, DeleteAccountView
 )
 from .ringtone_views import (
@@ -20,6 +20,7 @@ urlpatterns = [
     path('posts/', UserPostsView.as_view(), name='user-posts'),
     path('posts/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
     path('posts/all/', AllPostsView.as_view(), name='all-posts'),
+    path('posts/matches/count/', MatchCountView.as_view(), name='match-count'),
 
     # Ringtone endpoints
     path('ringtones/', RingtoneListView.as_view(), name='ringtone-list'),

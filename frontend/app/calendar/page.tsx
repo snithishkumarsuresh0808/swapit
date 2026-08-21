@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
+import BackButton from '../components/BackButton';
 
 export default function Calendar() {
-  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // Get month and year
@@ -88,6 +87,7 @@ export default function Calendar() {
 
       <div className="pt-16">
         <div className="max-w-2xl mx-auto px-3 py-4">
+          <BackButton />
           {/* Header */}
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-sm font-bold text-gray-900">Calendar</h1>

@@ -9,6 +9,7 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
+    last_seen = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
@@ -41,6 +42,9 @@ class Post(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]
 
     def __str__(self):
         return f"{self.user.email}'s Post - {self.created_at.strftime('%Y-%m-%d')}"
@@ -51,6 +55,11 @@ class PostImage(models.Model):
     image = models.ImageField(upload_to='post_images/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['post']),
+        ]
+
     def __str__(self):
         return f"Image for {self.post.id}"
 
@@ -59,6 +68,11 @@ class PostVideo(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='videos')
     video = models.FileField(upload_to='post_videos/', storage=get_video_storage)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['post']),
+        ]
 
     def __str__(self):
         return f"Video for {self.post.id}"

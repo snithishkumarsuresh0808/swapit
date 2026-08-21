@@ -16,72 +16,23 @@ export default function Sidebar() {
 
   const fetchMatchCount = useCallback(async () => {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
 
-    if (!token || !userData) return;
+    if (!token) return;
 
     // Check if user has visited matches page before
     const lastVisit = localStorage.getItem('lastMatchesVisit');
 
     try {
-      // Fetch all posts
-      const postsResponse = await fetch(getApiUrl('/api/posts/all/'), {
+      const query = lastVisit ? `?last_visit=${encodeURIComponent(lastVisit)}` : '';
+      const response = await fetch(getApiUrl(`/api/posts/matches/count/${query}`), {
         headers: {
           'Authorization': `Token ${token}`,
         },
       });
 
-      if (postsResponse.ok) {
-        const allPosts = await postsResponse.json();
-
-        // Fetch current user's posts
-        const userPostsResponse = await fetch(getApiUrl('/api/posts/'), {
-          headers: {
-            'Authorization': `Token ${token}`,
-          },
-        });
-
-        if (userPostsResponse.ok) {
-          const userPosts = await userPostsResponse.json();
-
-          // Get my skills
-          const mySkills: string[] = [];
-          const myWantedSkills: string[] = [];
-
-          userPosts.forEach((post: any) => {
-            mySkills.push(...post.skills);
-            myWantedSkills.push(...post.wanted_skills);
-          });
-
-          // Count matches created after last visit
-          const currentUserId = JSON.parse(userData).id;
-          const lastVisitDate = lastVisit ? new Date(lastVisit) : new Date(0);
-          let count = 0;
-          const processedUsers = new Set<number>();
-
-          allPosts.forEach((post: any) => {
-            if (post.user.id === currentUserId || processedUsers.has(post.user.id)) return;
-
-            // Only count if post was created after last visit
-            const postCreated = new Date(post.created_at);
-            if (postCreated <= lastVisitDate) return;
-
-            const theyCanTeachMe = post.skills.filter((skill: string) =>
-              myWantedSkills.some(wantedSkill => wantedSkill.toLowerCase().trim() === skill.toLowerCase().trim())
-            );
-
-            const canTeachThem = post.wanted_skills.filter((skill: string) =>
-              mySkills.some(mySkill => mySkill.toLowerCase().trim() === skill.toLowerCase().trim())
-            );
-
-            if (theyCanTeachMe.length > 0 || canTeachThem.length > 0) {
-              count++;
-              processedUsers.add(post.user.id);
-            }
-          });
-
-          setMatchCount(count);
-        }
+      if (response.ok) {
+        const data = await response.json();
+        setMatchCount(data.count);
       }
     } catch (error) {
       console.error('Error fetching match count:', error);
@@ -134,6 +85,20 @@ export default function Sidebar() {
     fetchUnreadMessages();
     fetchPendingConnections();
 
+    // Send heartbeat to update last_seen
+    const sendHeartbeat = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        await fetch(getApiUrl('/api/messages/heartbeat/'), {
+          method: 'POST',
+          headers: { 'Authorization': `Token ${token}`, 'Content-Type': 'application/json' },
+        });
+      } catch {}
+    };
+    sendHeartbeat();
+    const heartbeatInterval = setInterval(sendHeartbeat, 60000);
+
     // Auto-refresh notifications every 30 seconds (reduced from 5 seconds)
     const interval = setInterval(() => {
       fetchMatchCount();
@@ -141,12 +106,17 @@ export default function Sidebar() {
       fetchPendingConnections();
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(heartbeatInterval);
+    };
   }, [fetchMatchCount, fetchUnreadMessages, fetchPendingConnections, pathname]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    const { clearAuthCookies } = await import('../actions/auth');
+    await clearAuthCookies();
     router.push('/login');
   };
 
@@ -183,7 +153,16 @@ export default function Sidebar() {
       path: '/matches',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      ),
+    },
+    {
+      name: 'Sessions',
+      path: '/sessions',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       ),
     },
@@ -217,12 +196,16 @@ export default function Sidebar() {
           {/* Navigation Tabs */}
           <nav className="flex items-center space-x-1">
             {menuItems.map((item) => {
-              // Highlight Home when on root path (/) or dashboard path (/dashboard)
-              // Highlight Messages when on /messages or /messages/[id]
+              const isHiddenOnMobile = item.name === 'Find Matches' || item.name === 'Sessions';
+
               const isActive = item.name === 'Home'
                 ? (pathname === '/' || pathname === '/dashboard')
                 : item.name === 'Messages'
                 ? pathname?.startsWith('/messages')
+                : item.name === 'Discover'
+                ? pathname === '/discover'
+                : item.name === 'Sessions'
+                ? pathname === '/sessions'
                 : pathname === item.path;
 
               return (
@@ -230,6 +213,8 @@ export default function Sidebar() {
                   key={item.path}
                   href={item.path}
                   className={`relative flex items-center space-x-2 px-2 sm:px-4 py-2 rounded-lg transition-all duration-200 ${
+                    isHiddenOnMobile ? 'hidden lg:flex' : 'flex'
+                  } ${
                     isActive
                       ? 'bg-green-50 text-green-700 font-medium'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-green-700'
@@ -282,6 +267,46 @@ export default function Sidebar() {
 
                 {/* Menu Items */}
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                  {/* Find Matches - only visible in dropdown on mobile */}
+                  <Link
+                    href="/matches"
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 lg:hidden ${pathname === '/matches' ? 'bg-green-50 text-green-700' : ''}`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Find Matches
+                    {matchCount > 0 && (
+                      <span className="ml-auto flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-600 rounded-full">
+                        {matchCount > 99 ? '99+' : matchCount}
+                      </span>
+                    )}
+                  </Link>
+
+                  {/* Sessions - only visible in dropdown on mobile */}
+                  <Link
+                    href="/sessions"
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 lg:hidden ${pathname === '/sessions' ? 'bg-green-50 text-green-700' : ''}`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Sessions
+                  </Link>
+
+                  <Link
+                    href="/ai"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI Assistant
+                  </Link>
+
                   <Link
                     href="/calendar"
                     onClick={() => setMenuOpen(false)}
@@ -291,6 +316,39 @@ export default function Sidebar() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     Calendar
+                  </Link>
+
+                  <Link
+                    href="/calls"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    Call History
+                  </Link>
+
+                  <Link
+                    href="/reviews"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                    Reviews
+                  </Link>
+
+                  <Link
+                    href="/gamification"
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 ${pathname === '/gamification' ? 'bg-green-50 text-green-700' : ''}`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                    Achievements
                   </Link>
 
                   <Link
